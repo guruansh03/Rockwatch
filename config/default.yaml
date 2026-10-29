@@ -14,6 +14,7 @@ inventory:
   c_alt: 5
   short_range_max_days: 3  # Date_Max - Date_Min <= this -> short_range
   min_year: 1950           # ERA5 from 1940; 30-day antecedent needed
+  max_valid_date: "2025-12-31"  # dates after this -> invalid (treated as undated; counted)
   utc_inventories:         # dates in UTC; all others local time
     - "USGS Earthquake-Triggered Ground Failure"
     - "USGS Seismogenic Mass Movements"
@@ -25,10 +26,11 @@ inventory:
     - "sinkhole"
     - "subsidence"
     - "erosion"
+    - "manmade fill"
   # LS_Type lowercase substring -> type_family. First match in this order wins.
   type_family_map:
-    - [fall, ["rockfall", "rock fall", "rock-fall", "fall", "topple"]]
-    - [flow, ["debris flow", "mudflow", "mud flow", "earthflow", "earth flow", "flow", "lahar", "debris avalanche"]]
+    - [fall, ["rockfall", "rock fall", "rock-fall", "rock_fall", "fall", "topple", "rock avalanche", "rock and ice avalanche"]]
+    - [flow, ["debris flow", "debris_flow", "mudflow", "mud flow", "mudslide", "earthflow", "earth flow", "flow", "torrent", "lahar", "debris avalanche"]]
     - [slide, ["slide", "slump", "rotational", "translational"]]
     - [unknown, ["unknown", "undetermined", "unspecified", "landslide", "mass movement"]]
   other_family: other       # nonempty LS_Type with no match
@@ -39,6 +41,7 @@ profiling:
   candidate_windows_deg: [2.0, 3.0]
   window_step_deg: 0.5
   top_k_regions: 10
+  rank_by: pos_zone_days_no_eq  # EQ-triggered inventories = few huge single days (D-009)
   min_positive_zone_days: 150   # heuristic (DECISIONS.md)
   min_test_zone_days: 30
   split_fracs: [0.6, 0.2, 0.2]  # train/val/test by positive zone-day count, chronological

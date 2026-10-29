@@ -7,7 +7,6 @@ Ground truth only: never a live input.
 """
 from __future__ import annotations
 
-import io
 import json
 import logging
 import zipfile
@@ -111,31 +110,56 @@ def find_raw_file(raw_dir: Path) -> Path | None:
     return zips[0] if zips else None
 
 
-def _read_csv_bytes(b: bytes) -> pd.DataFrame:
+LOAD_COLS = [c for c in EXPECTED_COLS if c not in ("Notes", "Inv_URL")]  # Notes untrusted; not needed
+
+
+def _read_csv(fobj_factory, usecols: list[str]) -> pd.DataFrame:
+    """Read CSV with encoding fallback; all columns str."""
+    last: Exception | None = None
     for enc in ("utf-8", "utf-8-sig", "latin-1"):
         try:
-            return pd.read_csv(io.BytesIO(b), dtype=str, encoding=enc, low_memory=False)
-        except UnicodeDecodeError:
-            continue
-    raise ValueError("cannot decode CSV")
+            with fobj_factory() as f:
+                return pd.read_csv(f, dtype=str, encoding=enc, usecols=usecols, low_memory=False)
+        except UnicodeDecodeError as e:
+            last = e
+    raise ValueError(f"cannot decode CSV: {last!r}")
 
 
-def load_raw(path: Path) -> pd.DataFrame:
-    """Read inventory CSV (direct or the largest CSV inside a zip). All columns as str."""
+def _check_header(fobj_factory) -> None:
+    with fobj_factory() as f:
+        cols = [c.strip() for c in pd.read_csv(f, nrows=0, encoding="latin-1").columns]
+    missing = [c for c in EXPECTED_COLS if c not in cols]
+    if missing:
+        raise ValueError(f"inventory missing expected columns {missing}; got {cols}")
+
+
+def load_raw(path: Path, usecols: list[str] | None = None) -> pd.DataFrame:
+    """Read inventory: a CSV, or ALL CSVs inside a zip (v3 ships point + poly files).
+
+    Adds `geom` (point|poly|csv) from the file name. Notes/Inv_URL not loaded by default.
+    """
+    usecols = usecols or LOAD_COLS
+    parts: list[pd.DataFrame] = []
     if path.suffix.lower() == ".zip":
         with zipfile.ZipFile(path) as z:
-            names = [n for n in z.namelist() if n.lower().endswith(".csv")]
+            names = [n for n in z.namelist() if n.lower().endswith(".csv") and "__macosx" not in n.lower()]
             if not names:
                 raise ValueError(f"no CSV inside {path}")
-            name = max(names, key=lambda n: z.getinfo(n).file_size)
-            df = _read_csv_bytes(z.read(name))
+            for n in sorted(names):
+                fac = lambda n=n: z.open(n)  # noqa: E731
+                _check_header(fac)
+                df = _read_csv(fac, usecols)
+                df["geom"] = "poly" if "poly" in n.lower() else ("point" if "point" in n.lower() else "csv")
+                parts.append(df)
     else:
-        df = _read_csv_bytes(path.read_bytes())
-    df.columns = [c.strip() for c in df.columns]
-    missing = [c for c in EXPECTED_COLS if c not in df.columns]
-    if missing:
-        raise ValueError(f"inventory missing expected columns {missing}; got {list(df.columns)}")
-    return df
+        fac = lambda: path.open("rb")  # noqa: E731
+        _check_header(fac)
+        df = _read_csv(fac, usecols)
+        df["geom"] = "csv"
+        parts.append(df)
+    out = pd.concat(parts, ignore_index=True)
+    out.columns = [c.strip() for c in out.columns]
+    return out
 
 
 # --------------------------------------------------------------------------- clean
@@ -150,6 +174,8 @@ class CleanReport:
     n_lon_positive_after: int = 0
     n_unparsed_date_min: int = 0
     n_date_max_before_min: int = 0
+    n_future_dates: int = 0
+    n_same_day_range: int = 0
     n_kept: int = 0
 
 
@@ -221,7 +247,12 @@ def clean_inventory(df: pd.DataFrame, cfg: dict[str, Any]) -> tuple[pd.DataFrame
     rep.n_unparsed_date_min = int((dmin_raw.notna() & out["date_min"].isna()).sum())
     rev = out["date_max"].notna() & out["date_min"].notna() & (out["date_max"] < out["date_min"])
     rep.n_date_max_before_min = int(rev.sum())
+    maxd = pd.Timestamp(inv.get("max_valid_date", "2100-01-01"))
+    fut_min, fut_max = out["date_min"] > maxd, out["date_max"] > maxd
+    rep.n_future_dates = int((fut_min | fut_max).sum())
+    out.loc[fut_min | fut_max, ["date_min", "date_max"]] = pd.NaT  # implausible -> undated (never exact)
     out.loc[rev, ["date_min", "date_max"]] = out.loc[rev, ["date_max", "date_min"]].values
+    rep.n_same_day_range = int((out["date_max"].notna() & (out["date_max"] == out["date_min"])).sum())
     out["date_kind"] = date_kind(out["date_min"], out["date_max"], inv["short_range_max_days"])
     out["date_tz"] = np.where(out["Inventory"].isin(inv["utc_inventories"]), "UTC", "local")
 

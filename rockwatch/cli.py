@@ -53,11 +53,12 @@ def cmd_profile(cfg: dict, args: argparse.Namespace) -> int:
     (docs / "data_profile.md").write_text(md, encoding="utf-8")
     (interim / "profile_summary.json").write_text(json.dumps(summary, indent=1, default=str), encoding="utf-8")
     yx = repo_path(cfg["yosemite"]["raw_dir"])
-    if any(yx.glob("*.xlsx")):
-        from rockwatch.data.yosemite import load_yosemite
-        y = load_yosemite(next(yx.glob("*.xlsx")))
-        (docs / "data_profile.md").open("a", encoding="utf-8").write(
-            f"\n## 7. Yosemite DS746 (raw)\n\nSheet `{y.attrs.get('sheet')}`: {len(y)} rows; columns: {list(y.columns)}\n")
+    xl = sorted(yx.glob("*.xlsx"))
+    if xl:
+        from rockwatch.data.yosemite import load_yosemite, yosemite_profile_md
+        y = load_yosemite(xl[0])
+        with (docs / "data_profile.md").open("a", encoding="utf-8") as fh:
+            fh.write(yosemite_profile_md(y, cfg["inventory"]["min_year"]))
     print(f"wrote {docs / 'data_profile.md'}")
     return 0
 

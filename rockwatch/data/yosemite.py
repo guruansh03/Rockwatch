@@ -41,9 +41,52 @@ def fetch_yosemite(index_url: str, raw_dir: Path, timeout: int = 60) -> Path | N
 
 
 def load_yosemite(path: Path) -> pd.DataFrame:
-    """Load all sheets; return the largest as raw DataFrame (schema profiled, not assumed)."""
-    sheets = pd.read_excel(path, sheet_name=None)
-    name = max(sheets, key=lambda k: len(sheets[k]))
-    df = sheets[name]
-    df.attrs["sheet"] = name
-    return df
+    """Parse the `Master` sheet. Header row located by the 'Year' cell. Adds `date` (exact Y/M/D only)
+    and `date_kind` (exact|undated). Narrative/free-text columns are untrusted: dropped."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        raw = pd.read_excel(path, sheet_name="Master", header=None)
+    hdr = next(i for i in range(min(30, len(raw))) if "Year" in [str(x).strip() for x in raw.iloc[i].tolist()])
+    df = raw.iloc[hdr + 1:].copy()
+    df.columns = [str(c).strip() for c in raw.iloc[hdr].tolist()]
+    df = df.dropna(how="all")
+    df = df.drop(columns=[c for c in df.columns if c.lower().startswith(("narrative", "published"))])
+    y = pd.to_numeric(df["Year"], errors="coerce")
+    m = pd.to_numeric(df["Month"], errors="coerce")
+    d = pd.to_numeric(df["Day"], errors="coerce")
+    ok = y.notna() & m.between(1, 12) & d.between(1, 31)
+    dates = pd.to_datetime(
+        dict(year=y.where(ok), month=m.where(ok), day=d.where(ok)), errors="coerce"
+    )
+    df["date"] = dates
+    df["date_kind"] = df["date"].notna().map({True: "exact", False: "undated"})
+    df.attrs["sheet"] = "Master"
+    return df.reset_index(drop=True)
+
+
+def yosemite_profile_md(df: pd.DataFrame, min_year: int) -> str:
+    """Markdown section for the profile."""
+    ex = df[(df["date_kind"] == "exact") & (df["date"].dt.year >= min_year)]
+    typ = "Type of slope movement"
+    trig = "Triggering condition(s)"
+    out = [f"\n## 7. Yosemite DS746 (rockfall track candidate)\n",
+           f"- Rows: {len(df)}; exact-dated (Y/M/D): {(df['date_kind'] == 'exact').sum()}; exact since {min_year}: **{len(ex)}**; "
+           f"distinct dates since {min_year}: **{ex['date'].nunique()}**.",
+           "- No coordinates in sheet (named locations only) → whole valley ≈ 1–2 zones (0.25°). Eyewitness/reporting bias.",
+           "\n- Exact since %d by 5-yr bin:\n" % min_year,
+           (ex["date"].dt.year // 5 * 5).value_counts().sort_index().to_frame("n").to_markdown() if hasattr(pd.DataFrame, "to_markdown") and _has_tabulate() else str((ex["date"].dt.year // 5 * 5).value_counts().sort_index().to_dict())]
+    if typ in df.columns:
+        out.append(f"\n- `{typ}` (exact since {min_year}): {ex[typ].astype(str).value_counts().to_dict()}")
+    if trig in df.columns:
+        out.append(f"- `{trig}` (exact since {min_year}, top 12): {ex[trig].astype(str).value_counts().head(12).to_dict()}")
+    return "\n".join(out) + "\n"
+
+
+def _has_tabulate() -> bool:
+    try:
+        import tabulate  # noqa: F401
+        return True
+    except ImportError:
+        return False

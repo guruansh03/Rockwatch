@@ -63,3 +63,18 @@ def test_profile_end_to_end():
 def test_cli_parser():
     a = build_parser().parse_args(["eval", "--split", "test", "--final"])
     assert a.final and a.split == "test"
+
+
+def test_rank_excludes_eq_inventories():
+    cfg = load_config()
+    raw = synth_inventory()
+    raw.loc[raw.index[-5:], "Inventory"] = "USGS Earthquake-Triggered Ground Failure"
+    clean, rep = clean_inventory(raw, cfg)
+    _, summary = profile(clean, rep, cfg, "synthetic.csv")
+    assert all(r["lat0"] >= 45 for r in summary["regions"])  # EQ-only far cluster never ranked
+
+
+def test_coverage_start_skips_stray_early_events():
+    from rockwatch.data.profiling import coverage_start
+    d = pd.Series(pd.to_datetime(["1976-05-01"] + [f"{y}-0{m}-01" for y in range(2006, 2016) for m in range(1, 10)]))
+    assert coverage_start(d) == pd.Timestamp("2006-01-01")
