@@ -1,0 +1,67 @@
+# RockWatch-FuseGuard tunables. Frozen copy goes into every report.
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  cache: data/cache
+  docs: docs
+  reports: reports
+
+inventory:
+  sciencebase_item: "https://www.sciencebase.gov/catalog/item/671eef1fd34ed0f827ea9f12?format=json"
+  raw_dir: data/raw/usgs_ls_v3
+  c_min: 3                 # confidence filter; also report >=5
+  c_alt: 5
+  short_range_max_days: 3  # Date_Max - Date_Min <= this -> short_range
+  min_year: 1950           # ERA5 from 1940; 30-day antecedent needed
+  utc_inventories:         # dates in UTC; all others local time
+    - "USGS Earthquake-Triggered Ground Failure"
+    - "USGS Seismogenic Mass Movements"
+  # LS_Type lowercase substrings -> dropped as non-landslide. Checked before family map.
+  exclude_type_substrings:
+    - "gully"
+    - "avalanche chute"
+    - "snow avalanche"
+    - "sinkhole"
+    - "subsidence"
+    - "erosion"
+  # LS_Type lowercase substring -> type_family. First match in this order wins.
+  type_family_map:
+    - [fall, ["rockfall", "rock fall", "rock-fall", "fall", "topple"]]
+    - [flow, ["debris flow", "mudflow", "mud flow", "earthflow", "earth flow", "flow", "lahar", "debris avalanche"]]
+    - [slide, ["slide", "slump", "rotational", "translational"]]
+    - [unknown, ["unknown", "undetermined", "unspecified", "landslide", "mass movement"]]
+  other_family: other       # nonempty LS_Type with no match
+  empty_family: unknown     # missing LS_Type
+
+profiling:
+  zone_deg: 0.25            # matches ERA5 order of magnitude
+  candidate_windows_deg: [2.0, 3.0]
+  window_step_deg: 0.5
+  top_k_regions: 10
+  min_positive_zone_days: 150   # heuristic (DECISIONS.md)
+  min_test_zone_days: 30
+  split_fracs: [0.6, 0.2, 0.2]  # train/val/test by positive zone-day count, chronological
+  gap_days: 30
+
+yosemite:
+  index_url: "https://pubs.usgs.gov/ds/746/"
+  raw_dir: data/raw/yosemite
+
+weather:
+  base_url: "https://archive-api.open-meteo.com/v1/archive"
+  daily: [precipitation_sum, rain_sum, snowfall_sum, precipitation_hours, temperature_2m_max, temperature_2m_min]
+  max_calls_per_min: 500    # below 600/min free-tier limit
+
+quakes:
+  base_url: "https://earthquake.usgs.gov/fdsnws/event/1/query"
+  min_magnitude: 3.0
+  buffer_km: 200
+
+llm:
+  provider: mock
+  temperature: 0
+  timeout_s: 20
+  max_tool_turns: 4
+  max_llm_calls: 500
+  prices: null              # never hardcoded

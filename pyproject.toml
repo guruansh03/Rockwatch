@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rockwatch"
+version = "0.0.1"
+description = "RockWatch-FuseGuard: multi-agent landslide early-warning prototype (SIH25071)"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.1", "numpy", "scipy", "scikit-learn", "pyarrow", "requests", "pydantic>=2",
+  "pyyaml", "python-dotenv", "openpyxl",
+]
+
+[project.optional-dependencies]
+ui = ["streamlit", "pydeck", "plotly", "matplotlib"]
+llm = ["anthropic"]
+dev = ["pytest"]
+
+[project.scripts]
+rockwatch = "rockwatch.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["rockwatch*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

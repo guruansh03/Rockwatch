@@ -1,0 +1,17 @@
+# Unpinned for Phase 0; pin via `pip freeze > requirements.lock.txt` after first full install.
+pandas>=2.1
+numpy
+scipy
+scikit-learn
+pyarrow
+requests
+pydantic>=2
+pyyaml
+python-dotenv
+openpyxl
+streamlit
+pydeck
+plotly
+matplotlib
+anthropic
+pytest
