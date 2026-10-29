@@ -1,6 +1,6 @@
 # DECISIONS
 
-- **D-001 (P0)** Exact-day event = `Date_Min` set and (`Date_Max` empty **or `Date_Max == Date_Min`**). Same-day range carries no extra uncertainty; simplest valid reading. Counted separately in profile? No — folded into `exact`; revisit at CP1 if user objects.
+- **D-001 (P0)** Exact-day event = `Date_Min` set and (`Date_Max` empty **or `Date_Max == Date_Min`**). Same-day range carries no extra uncertainty; simplest valid reading. Folded into `exact`; revisit at CP1.
 - **D-002 (P0)** `Date_Max < Date_Min` rows: swap; count reported in profile.
 - **D-003 (P0)** `Lon_W` sign: if >50% of values positive, negate whole column; residual positive count reported.
 - **D-004 (P0)** Type family: lowercase substring match, priority fall > flow > slide > unknown; nonempty unmatched → `other`, empty → `unknown`. "debris avalanche" → flow. Exclusions (gully, avalanche chute, snow avalanche, sinkhole, subsidence, erosion) checked first. Table in `config/default.yaml`; top-40 raw LS_Type→family mapping printed in profile for CP1 review.
