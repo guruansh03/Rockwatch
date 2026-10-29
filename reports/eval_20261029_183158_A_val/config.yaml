@@ -1,0 +1,197 @@
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  cache: data/cache
+  docs: docs
+  reports: reports
+inventory:
+  sciencebase_item: https://www.sciencebase.gov/catalog/item/671eef1fd34ed0f827ea9f12?format=json
+  raw_dir: data/raw/usgs_ls_v3
+  c_min: 3
+  c_alt: 5
+  short_range_max_days: 3
+  min_year: 1950
+  max_valid_date: '2025-12-31'
+  utc_inventories:
+  - USGS Earthquake-Triggered Ground Failure
+  - USGS Seismogenic Mass Movements
+  exclude_type_substrings:
+  - gully
+  - avalanche chute
+  - snow avalanche
+  - sinkhole
+  - subsidence
+  - erosion
+  - manmade fill
+  type_family_map:
+  - - fall
+    - - rockfall
+      - rock fall
+      - rock-fall
+      - rock_fall
+      - fall
+      - topple
+      - rock avalanche
+      - rock and ice avalanche
+  - - flow
+    - - debris flow
+      - debris_flow
+      - mudflow
+      - mud flow
+      - mudslide
+      - earthflow
+      - earth flow
+      - flow
+      - torrent
+      - lahar
+      - debris avalanche
+  - - slide
+    - - slide
+      - slump
+      - rotational
+      - translational
+  - - unknown
+    - - unknown
+      - undetermined
+      - unspecified
+      - landslide
+      - mass movement
+  other_family: other
+  empty_family: unknown
+profiling:
+  zone_deg: 0.25
+  candidate_windows_deg:
+  - 2.0
+  - 3.0
+  window_step_deg: 0.5
+  top_k_regions: 10
+  rank_by: pos_zone_days_no_eq
+  min_positive_zone_days: 150
+  min_test_zone_days: 30
+  split_fracs:
+  - 0.6
+  - 0.2
+  - 0.2
+  gap_days: 30
+yosemite:
+  index_url: https://pubs.usgs.gov/ds/746/
+  raw_dir: data/raw/yosemite
+main_region: A
+regions:
+  A:
+    name: Anchorage / Seward Highway, Alaska (AK DOT)
+    tz: America/Anchorage
+    truth: usgs_v3
+    bbox:
+    - 59.5
+    - 62.5
+    - -150.5
+    - -147.5
+    exclude_eq_inventories_from_positives: false
+    splits:
+      train:
+      - '2006-01-01'
+      - '2015-02-10'
+      val:
+      - '2015-03-13'
+      - '2018-03-15'
+      test:
+      - '2018-04-15'
+      - '2022-06-30'
+  Y:
+    name: Yosemite Valley, California (USGS DS746 rockfall track)
+    tz: America/Los_Angeles
+    truth: yosemite_ds746
+    single_zone:
+      zone_id: yose
+      lat: 37.735
+      lon: -119.59
+    splits:
+      train:
+      - '1951-01-01'
+      - '2008-01-08'
+      val:
+      - '2008-02-08'
+      - '2010-04-03'
+      test:
+      - '2010-05-04'
+      - '2011-12-31'
+zones:
+  deg: 0.25
+  zero_feature_ratio: 0.25
+  zero_feature_neighbor_only: true
+  seed: 25071
+  antecedent_days: 35
+weather:
+  base_url: https://archive-api.open-meteo.com/v1/archive
+  daily:
+  - precipitation_sum
+  - rain_sum
+  - snowfall_sum
+  - precipitation_hours
+  - temperature_2m_max
+  - temperature_2m_min
+  chunk_years: 17
+  min_interval_s: 22
+  timeout_s: 60
+quakes:
+  base_url: https://earthquake.usgs.gov/fdsnws/event/1/query
+  min_magnitude: 3.0
+  buffer_km: 200
+llm:
+  provider: mock
+  temperature: 0
+  timeout_s: 20
+  max_tool_turns: 4
+  max_llm_calls: 500
+  prices: null
+fusion:
+  neg_per_pos: 50
+  C_grid:
+  - 0.01
+  - 0.1
+  - 1.0
+  cap: 3.0
+  seed: 25071
+  quality_weights:
+    ok: 1.0
+    degraded: 0.5
+    missing: 0.0
+  dynamic_modalities:
+  - rain
+  - thermal
+  - seismic
+thresholds:
+  t1_recall: 0.9
+  t3_min_recall: 0.2
+  n_grid: 200
+  corroboration_min_dynamic: 2
+eval:
+  level_main: 2
+  bootstrap_n: 1000
+  storm_gap_days: 3
+  random_baseline_draws: 20
+  clim_smoothing_k: 30
+  banner: US natural-slope data; not mine performance; precision is a lower bound
+    (unreported events).
+agents:
+  rain_sensor_groups: 2
+  watermarks:
+    evidence_missing: 0.9
+    quality: 0.8
+    context: 1.0
+    fusion: 1.2
+    alert: 1.5
+  stale_after_s: 6.0
+  restart_after_s: 12.0
+  ack_renotify_days: 2
+  stuck_days: 4
+  outlier_mm: 75
+scenarios:
+  dev_val:
+    region: A
+    start: '2017-08-20'
+    days: 60
+llm_live:
+  max_calls_per_day: 3

@@ -41,5 +41,15 @@
 ### Pending
 - Weather for remaining A zones (20/70 cached).
 
+## Phase 4 — LLM agents — DONE with mock; real-provider smoke run PENDING (needs API key / Ollama)
+### Done
+- `llm/{provider,anthropic_provider,ollama_provider,mock_provider,cache,guardrails,runtime,evidence}.py`, `llm/prompts/*.md`.
+- Agents: LLM-Verifier (tools; live BusStore / batch PanelStore), LLM-AlertComposer (own process), LLM-Analyst (`rockwatch ask`).
+- `eval --llm on` (full ± verifier rows in ablation.md, llm_usage.json); `run-demo --llm on`; `llm-smoke --provider ...` writes reports/llm_smoke_*.json.
+- Tests: 61 passing incl. `test_guardrails.py` (never-raise, forbidden downgrades ×3, numbers, ids, invalid JSON retry→fallback, L3 corroboration, cache, cap, composer actions/template, analyst refusals/citations).
+- Mock runs: 20-day multi-process demo with verifier+composer (83 LLM calls, 23 messages); val eval with 500-call cap.
+### Pending
+- Real-provider smoke run: put ANTHROPIC_API_KEY in `.env` (or run Ollama natively) → `python -m rockwatch llm-smoke --provider anthropic`.
+
 ## Deviations
 - DECISIONS.md D-001..D-019.

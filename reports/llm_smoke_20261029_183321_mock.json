@@ -1,0 +1,181 @@
+{
+ "provider": "mock",
+ "verifier_model": "mock-rules-v1",
+ "writer_model": "mock-rules-v1",
+ "verifier": [
+  {
+   "mode": "llm",
+   "zone_id": "r7c4",
+   "date": "2016-05-03",
+   "level_in": 3,
+   "usage": {
+    "task": "verifier",
+    "provider": "mock",
+    "model": "mock-rules-v1",
+    "attempts": 1,
+    "cached": true,
+    "input_tokens": 517,
+    "output_tokens": 60,
+    "latency_s": 0.0,
+    "violations": [],
+    "outcome": "ok",
+    "tool_calls": 0
+   },
+   "decision": "CONFIRM",
+   "level_out": 3,
+   "l3_corroborated_by_llm": false,
+   "verifier": "llm",
+   "confidence": 0.7,
+   "rationale": "Dynamic evidence supports the alert: rain contribution 0.76 with p 0.074.",
+   "evidence_ids": [
+    "panel:r7c4:2016-05-03:fused",
+    "panel:r7c4:2016-05-03:rain",
+    "panel:r7c4:2016-05-03:susceptibility"
+   ],
+   "missing_evidence": []
+  },
+  {
+   "mode": "llm",
+   "zone_id": "r7c4",
+   "date": "2016-05-02",
+   "level_in": 3,
+   "usage": {
+    "task": "verifier",
+    "provider": "mock",
+    "model": "mock-rules-v1",
+    "attempts": 1,
+    "cached": true,
+    "input_tokens": 517,
+    "output_tokens": 60,
+    "latency_s": 0.0,
+    "violations": [],
+    "outcome": "ok",
+    "tool_calls": 0
+   },
+   "decision": "CONFIRM",
+   "level_out": 3,
+   "l3_corroborated_by_llm": false,
+   "verifier": "llm",
+   "confidence": 0.7,
+   "rationale": "Dynamic evidence supports the alert: rain contribution 0.73 with p 0.073.",
+   "evidence_ids": [
+    "panel:r7c4:2016-05-02:fused",
+    "panel:r7c4:2016-05-02:rain",
+    "panel:r7c4:2016-05-02:susceptibility"
+   ],
+   "missing_evidence": []
+  }
+ ],
+ "composer": [
+  {
+   "alert": {
+    "zone_id": "r7c4",
+    "date": "2016-05-03",
+    "level": 3,
+    "p": 0.0737,
+    "top_modality": "susceptibility",
+    "contributions": {
+     "rain": 0.759,
+     "susceptibility": 2.04,
+     "thermal": -0.25,
+     "seismic": 0.041,
+     "context": 0.675
+    },
+    "episode_id": null
+   },
+   "message": {
+    "headline": "Level 3 landslide-risk alert for zone r7c4",
+    "body": "Estimated probability 0.074 on 2016-05-03. Largest contribution: susceptibility.",
+    "actions": [
+     "Increase monitoring of slopes in the zone.",
+     "Restrict access below slopes in the zone."
+    ],
+    "source": "llm"
+   },
+   "usage": {
+    "task": "composer",
+    "provider": "mock",
+    "model": "mock-rules-v1",
+    "attempts": 1,
+    "cached": false,
+    "input_tokens": 66,
+    "output_tokens": 60,
+    "latency_s": 0.0,
+    "violations": [],
+    "outcome": "ok",
+    "tool_calls": 0
+   }
+  },
+  {
+   "alert": {
+    "zone_id": "r7c4",
+    "date": "2016-05-02",
+    "level": 3,
+    "p": 0.0735,
+    "top_modality": "susceptibility",
+    "contributions": {
+     "rain": 0.735,
+     "susceptibility": 2.04,
+     "thermal": -0.248,
+     "seismic": 0.041,
+     "context": 0.689
+    },
+    "episode_id": null
+   },
+   "message": {
+    "headline": "Level 3 landslide-risk alert for zone r7c4",
+    "body": "Estimated probability 0.073 on 2016-05-02. Largest contribution: susceptibility.",
+    "actions": [
+     "Increase monitoring of slopes in the zone.",
+     "Restrict access below slopes in the zone."
+    ],
+    "source": "llm"
+   },
+   "usage": {
+    "task": "composer",
+    "provider": "mock",
+    "model": "mock-rules-v1",
+    "attempts": 1,
+    "cached": false,
+    "input_tokens": 66,
+    "output_tokens": 60,
+    "latency_s": 0.0,
+    "violations": [],
+    "outcome": "ok",
+    "tool_calls": 0
+   }
+  }
+ ],
+ "usage": {
+  "verifier": {
+   "provider": "mock",
+   "model": "mock-rules-v1",
+   "calls_made": 0,
+   "cap": 500,
+   "requests": 2,
+   "outcomes": {
+    "ok": 2
+   },
+   "cached": 2,
+   "input_tokens": 1034,
+   "output_tokens": 120,
+   "latency_s_total": 0.0,
+   "cost": null
+  },
+  "writer": {
+   "provider": "mock",
+   "model": "mock-rules-v1",
+   "calls_made": 2,
+   "cap": 500,
+   "requests": 2,
+   "outcomes": {
+    "ok": 2
+   },
+   "cached": 0,
+   "input_tokens": 132,
+   "output_tokens": 120,
+   "latency_s_total": 0.0,
+   "cost": null
+  }
+ }
+}

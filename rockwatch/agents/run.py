@@ -19,6 +19,7 @@ def classes():
     from rockwatch.agents.evidence_susceptibility import EvidenceSusceptibilityAgent
     from rockwatch.agents.evidence_thermal import EvidenceThermalAgent
     from rockwatch.agents.fusion import FusionAgent
+    from rockwatch.agents.llm_composer import ComposerAgent
     from rockwatch.agents.llm_verifier import VerifierAgent
     from rockwatch.agents.quality import QualityAgent
     from rockwatch.agents.sensor_rain import RainSensorAgent
@@ -27,7 +28,7 @@ def classes():
     from rockwatch.agents.supervisor import SupervisorAgent
     return {c.name: c for c in (RainSensorAgent, ThermalSensorAgent, SeismicSensorAgent, QualityAgent, EvidenceRainAgent,
                                 EvidenceThermalAgent, EvidenceSeismicAgent, EvidenceSusceptibilityAgent, ContextAgent, FusionAgent,
-                                VerifierAgent, AlertAgent, SupervisorAgent, EvaluatorAgent)}
+                                VerifierAgent, AlertAgent, ComposerAgent, SupervisorAgent, EvaluatorAgent)}
 
 
 def agent_specs(cfg) -> list[tuple[str, str, dict]]:
@@ -35,7 +36,7 @@ def agent_specs(cfg) -> list[tuple[str, str, dict]]:
     n = cfg["agents"]["rain_sensor_groups"]
     specs = [(f"sensor_rain_{g}", "sensor_rain", {"group": g, "n_groups": n}) for g in range(n)]
     specs += [(x, x, {}) for x in ("sensor_thermal", "sensor_seismic", "quality", "evidence_rain", "evidence_thermal",
-                                   "evidence_seismic", "evidence_susceptibility", "context", "fusion", "verifier", "alert",
+                                   "evidence_seismic", "evidence_susceptibility", "context", "fusion", "verifier", "alert", "composer",
                                    "supervisor", "evaluator")]
     return specs
 
@@ -46,7 +47,7 @@ def build(ctx: AgentContext, bus=None, only: list[str] | None = None) -> list:
     for aid, cname, kw in agent_specs(ctx.cfg):
         if only and aid not in only:
             continue
-        if cname == "supervisor":
+        if cname in ("supervisor", "verifier", "composer"):
             kw = {**kw, "bus": bus}
         out.append(C[cname](ctx, agent_id=aid, **kw))
     return out
@@ -61,12 +62,13 @@ def main(argv=None) -> int:
     ap.add_argument("--end", required=True)
     ap.add_argument("--speed", type=float, default=1.5)
     ap.add_argument("--config", default=None)
+    ap.add_argument("--llm", choices=["on", "off"], default="off")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, filename=str(Path(a.run_dir) / f"{a.agent}.log"),
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     from rockwatch.bus.sqlite_bus import SqliteBus
     cfg = load_config(a.config)
-    ctx = AgentContext(cfg, a.region, a.start, a.end, a.speed)
+    ctx = AgentContext(cfg, a.region, a.start, a.end, a.speed, params={"llm": a.llm})
     bus = SqliteBus(Path(a.run_dir) / "bus.sqlite")
     agent = build(ctx, bus, only=[a.agent])[0]
     run_loop(agent, bus)

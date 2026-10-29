@@ -95,7 +95,12 @@ def write_report(res: dict[str, Any], cfg: dict[str, Any], git: str, llm_usage: 
     for k, m in res["ablations"].items():
         A.append(f"| {k} | {_f(m['val_ap'])} | {_f(m['t2'], 4)} | {_f(m['recall_before'])} | {_f(m['recall_at'])} | {_f(m['precision_episode'])} | "
                  f"{_f(m['precision_day'])} | {_f(m['f1_at'])} | {_f(m['false_alarms_per_zone_year'])} | {_f(m['alert_day_fraction'])} |")
-    A.append("\nFull ± LLM-Verifier: added in Phase 4/6 (same split, same cache).\n")
+    if res.get("llm_usage"):
+        u = res["llm_usage"]
+        A.append(f"\nLLM-Verifier: provider {u['provider']} / {u['model']}; candidates {u['candidates']}; provider calls {u['calls_made']} "
+                 f"(cap {u['cap']}); outcomes {u['outcomes']}; decisions {u['decisions']}; levels changed {u['levels_changed']}.\n")
+    else:
+        A.append("\nLLM-Verifier off for this run (`--llm on` adds full ± verifier rows; same split, same cache).\n")
     (out / "ablation.md").write_text("\n".join(A) + "\n", encoding="utf-8")
     _plots(res, out)
     return out

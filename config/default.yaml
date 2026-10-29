@@ -143,3 +143,6 @@ scenarios:
     region: A
     start: "2017-08-20"
     days: 60
+# (llm) live demo budget: at most this many verifier calls per sim-day (highest-p first is not guaranteed; arrival order)
+llm_live:
+  max_calls_per_day: 3

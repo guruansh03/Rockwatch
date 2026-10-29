@@ -135,9 +135,6 @@ def cmd_eval(cfg: dict, args: argparse.Namespace) -> int:
     from rockwatch.eval.report import write_report
     from rockwatch.eval.runner import evaluate, git_hash
 
-    if args.llm == "on":
-        print("LLM verifier not implemented until Phase 4", file=sys.stderr)
-        return 3
     for r in args.regions:
         if args.split == "test":
             if not args.final:
@@ -151,8 +148,8 @@ def cmd_eval(cfg: dict, args: argparse.Namespace) -> int:
             log.parent.mkdir(parents=True, exist_ok=True)
             with log.open("a", encoding="utf-8") as f:
                 f.write(f"{dt.datetime.now().isoformat()} region={r} git={git_hash()} reason={args.force_rerun_with_reason or 'first final run'}\n")
-        res = evaluate(cfg, r, args.split, retrain=args.retrain)
-        out = write_report(res, cfg, git_hash())
+        res = evaluate(cfg, r, args.split, retrain=args.retrain, llm=args.llm == "on")
+        out = write_report(res, cfg, git_hash(), res.get("llm_usage"))
         m = res["rockwatch"]
         print(f"{r}/{args.split}: recall_before={m['recall_before']} recall_at={m['recall_at']} "
               f"prec_ep={m['precision_episode']} f1={m['f1_at']} alert_frac={m['alert_day_fraction']} -> {out}")
@@ -171,7 +168,7 @@ def cmd_run_demo(cfg: dict, args: argparse.Namespace) -> int:
         from rockwatch.replay.engine import run_local
         from rockwatch.replay.scenarios import resolve
         region, start, end = resolve(cfg, args.scenario, args.days)
-        ctx = AgentContext(cfg, region, start, end, args.speed)
+        ctx = AgentContext(cfg, region, start, end, args.speed, params={"llm": args.llm})
         bus = MemoryBus()
         run_local(ctx, bus, build(ctx, bus))
         print(f"memory bus (in-process, deterministic): {len(bus.log)} messages over {region} {start}→{end}")
@@ -180,9 +177,9 @@ def cmd_run_demo(cfg: dict, args: argparse.Namespace) -> int:
     if not args.headless:
         print("dashboard arrives in Phase 5 — running headless")
     kill = (args.kill_agent, args.kill_at_day) if args.kill_agent else None
-    s = launch(cfg, args.scenario, args.speed, args.days, kill, set(args.auto_restart or []))
+    s = launch(cfg, args.scenario, args.speed, args.days, kill, set(args.auto_restart or []), llm=args.llm)
     print(json.dumps({k: s[k] for k in ("sim_days", "days_with_daily_state", "fused_msgs", "active_level_zone_days",
-                                         "supervisor_flags", "degraded_fused_days", "eval_live_last", "offline_eval", "run_dir")},
+                                         "supervisor_flags", "degraded_fused_days", "eval_live_last", "offline_eval", "llm", "run_dir")},
                      indent=1, default=str))
     return 0 if s["days_with_daily_state"] == s["sim_days"] else 5
 
@@ -221,6 +218,72 @@ def cmd_agents(cfg: dict, args: argparse.Namespace) -> int:
         a = r["agent_id"]
         age = now - hb[a] if a in hb else float("nan")
         print(f"{a:26s} {r['pid']:7d} {r['restarts']:8d} {age:9.1f}  {flags.get(a, 'ok')}")
+    return 0
+
+
+def cmd_ask(cfg: dict, args: argparse.Namespace) -> int:
+    """LLM-Analyst over a run's bus log (latest run unless --run)."""
+    from pathlib import Path
+    from rockwatch.agents.llm_analyst import AnalystStore, answer
+    from rockwatch.bus.sqlite_bus import SqliteBus
+    from rockwatch.llm.runtime import LLMRuntime
+    from rockwatch.replay.launcher import latest_run
+
+    run = Path(args.run) if args.run else latest_run(cfg)
+    if run is None:
+        print("no runs found", file=sys.stderr)
+        return 2
+    rt = LLMRuntime(cfg, "writer") if args.llm == "on" else None
+    a = answer(rt, AnalystStore(SqliteBus(run / "bus.sqlite"), cfg), args.question)
+    print(json.dumps({k: v for k, v in a.items() if k != "records"}, indent=1, default=str))
+    return 0
+
+
+def cmd_llm_smoke(cfg: dict, args: argparse.Namespace) -> int:
+    """Real-provider smoke run: verifier (N val L2+ candidates, tools), composer, analyst refusal. Logged to reports/."""
+    import datetime as dt
+    import numpy as np
+    from rockwatch.agents.base import AgentContext
+    from rockwatch.agents.llm_composer import alert_view, compose
+    from rockwatch.agents.llm_verifier import verify
+    from rockwatch.eval.runner import load_inputs, load_models, n_dynamic_positive
+    from rockwatch.fusion.thresholds import raw_levels
+    from rockwatch.llm.evidence import PanelStore
+    from rockwatch.llm.provider import make_provider
+    from rockwatch.llm.runtime import LLMRuntime
+
+    r = args.region
+    P, _ = load_inputs(cfg, r)
+    full = load_models(cfg, r)["full"]
+    pred = full.predict(P)
+    nd = n_dynamic_positive(pred, cfg)
+    th = {k: v for k, v in full.thresholds.items() if k != "sweep"}
+    raw = raw_levels(pred["p"].to_numpy(), nd, th, cfg["thresholds"]["corroboration_min_dynamic"])
+    rc = cfg["regions"][r]
+    ctx = AgentContext(cfg, r, rc["splits"]["train"][0], rc["splits"]["test"][1])
+    store = PanelStore(P, pred, raw, nd, ctx)
+    val = (P["split"] == "val").to_numpy() & (raw >= 2)
+    idx = np.flatnonzero(val)
+    idx = idx[np.argsort(-pred["p"].to_numpy()[idx])][: args.n]
+    vrt = LLMRuntime(cfg, "verifier", provider=make_provider(cfg, "verifier", args.provider))
+    wrt = LLMRuntime(cfg, "writer", provider=make_provider(cfg, "writer", args.provider))
+    out = {"provider": vrt.provider.name, "verifier_model": vrt.provider.model, "writer_model": wrt.provider.model, "verifier": [], "composer": []}
+    for i in idx:
+        z, d = P.at[i, "zone_id"], P.at[i, "date"].strftime("%Y-%m-%d")
+        v = verify(vrt, store, z, d, int(raw[i]), float(pred.at[i, "p"]), th, int(nd[i]), cfg["thresholds"]["corroboration_min_dynamic"])
+        out["verifier"].append(v)
+        a = alert_view(z, d, int(v["level_out"]), float(pred.at[i, "p"]), {g: float(pred.at[i, f"c_{g}"]) for g in full.groups}, None)
+        if a["level"] >= 2:
+            msg, rec = compose(wrt, a)
+            out["composer"].append({"alert": a, "message": msg, "usage": rec})
+    out["usage"] = {"verifier": vrt.usage(), "writer": wrt.usage()}
+    rep = repo_path(cfg["paths"]["reports"])
+    rep.mkdir(parents=True, exist_ok=True)
+    f = rep / f"llm_smoke_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}_{out['provider']}.json"
+    f.write_text(json.dumps(out, indent=1, default=str), encoding="utf-8")
+    print(json.dumps({"file": str(f), "usage": out["usage"],
+                      "decisions": [(x["zone_id"], x["date"], x["decision"], x.get("verifier"), x.get("rationale")) for x in out["verifier"]]},
+                     indent=1, default=str))
     return 0
 
 
@@ -274,6 +337,17 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--kill-at-day", type=int, default=10)
     d.add_argument("--auto-restart", nargs="*", default=None, help="agent_ids the supervisor may restart")
     d.set_defaults(func=cmd_run_demo)
+    d.add_argument("--llm", choices=["on", "off"], default="off")
+    q = sp.add_parser("ask")
+    q.add_argument("question")
+    q.add_argument("--run", default=None)
+    q.add_argument("--llm", choices=["on", "off"], default="on")
+    q.set_defaults(func=cmd_ask)
+    sm = sp.add_parser("llm-smoke")
+    sm.add_argument("--region", default="A")
+    sm.add_argument("--n", type=int, default=3)
+    sm.add_argument("--provider", default=None, help="anthropic|ollama|mock (default: env ROCKWATCH_LLM_PROVIDER)")
+    sm.set_defaults(func=cmd_llm_smoke)
     a = sp.add_parser("agents")
     a.add_argument("action", choices=["status", "kill"])
     a.add_argument("target", nargs="?", default=None)

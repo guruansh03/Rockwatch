@@ -37,21 +37,21 @@ def heartbeats(bus) -> dict[str, float]:
 
 
 def launch(cfg: dict[str, Any], scenario: str, speed: float, days: int | None = None, kill: tuple[str, int] | None = None,
-           auto_restart: set[str] | None = None, log=print) -> dict[str, Any]:
+           auto_restart: set[str] | None = None, log=print, llm: str = "off") -> dict[str, Any]:
     from rockwatch.bus.sqlite_bus import SqliteBus
     from rockwatch.agents.evaluator import recompute_from_log
 
     region, start, end = resolve(cfg, scenario, days)
     run_dir = runs_root(cfg) / f"{scenario}_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
     run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "run.json").write_text(json.dumps(dict(scenario=scenario, region=region, start=start, end=end, speed=speed)), encoding="utf-8")
+    (run_dir / "run.json").write_text(json.dumps(dict(scenario=scenario, region=region, start=start, end=end, speed=speed, llm=llm)), encoding="utf-8")
     bus = SqliteBus(run_dir / "bus.sqlite")
     ctx = AgentContext(cfg, region, start, end, speed)
     procs: dict[str, subprocess.Popen] = {}
     auto_restart = auto_restart or set()
     for aid, _, _ in agent_specs(cfg):
         cmd = [sys.executable, "-m", "rockwatch.agents.run", "--agent", aid, "--run-dir", str(run_dir), "--region", region,
-               "--start", start, "--end", end, "--speed", str(speed)]
+               "--start", start, "--end", end, "--speed", str(speed), "--llm", llm]
         p = subprocess.Popen(cmd, cwd=str(REPO_ROOT), stdout=subprocess.DEVNULL, stderr=open(run_dir / f"{aid}.stderr", "w"))
         procs[aid] = p
         bus.register(aid, cmd, p.pid, aid in auto_restart)
@@ -99,7 +99,7 @@ def launch(cfg: dict[str, Any], scenario: str, speed: float, days: int | None = 
 
 
 def summarize(bus, days: list[str]) -> dict[str, Any]:
-    ev = bus.read("launcher", ["risk.fused", "risk.verified", "alerts.active", "quality.flags", "evidence.rain", "eval.live"])
+    ev = bus.read("launcher", ["risk.fused", "risk.verified", "alerts.active", "quality.flags", "evidence.rain", "eval.live", "llm.calls"])
     c = Counter((e.topic, e.kind) for e in ev)
     states = [e for e in ev if e.topic == "alerts.active" and e.kind == "daily_state"]
     lv = Counter(v for e in states for v in e.payload["levels"].values())
@@ -110,4 +110,8 @@ def summarize(bus, days: list[str]) -> dict[str, Any]:
             "message_counts": {f"{t}/{k}": n for (t, k), n in sorted(c.items())},
             "active_level_zone_days": {f"L{k}": v for k, v in sorted(lv.items())},
             "supervisor_flags": stale, "degraded_fused_days": [degraded_days[0], degraded_days[-1], len(degraded_days)] if degraded_days else [],
-            "eval_live_last": live[-1] if live else None}
+            "eval_live_last": live[-1] if live else None,
+            "llm": {"calls": c[("llm.calls", "verifier")] + c[("llm.calls", "composer")],
+                    "outcomes": dict(Counter(e.payload.get("outcome") for e in ev if e.topic == "llm.calls")),
+                    "verifier_decisions": dict(Counter(e.payload["verifier"].get("decision") for e in ev if e.topic == "risk.verified")),
+                    "messages_composed": c[("alerts.active", "message")]}}

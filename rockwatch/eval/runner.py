@@ -90,8 +90,36 @@ def breakdowns(fr, det) -> dict[str, Any]:
     return out
 
 
-def evaluate(cfg: dict[str, Any], region: str, split: str, retrain: bool = False) -> dict[str, Any]:
-    """Full evaluation of one region/split (LLM verifier off; P4 adds it)."""
+def apply_llm_verifier(cfg, region, P, pred, raw, ndyn, th, fr, provider=None) -> tuple[np.ndarray, dict[str, Any]]:
+    """Run the LLM-Verifier on every provisional L2+ row in the evaluated period (same code as live, PanelStore
+    evidence, shared cache). Beyond max_llm_calls → deterministic fallback (counted)."""
+    from rockwatch.agents.base import AgentContext
+    from rockwatch.agents.llm_verifier import verify
+    from rockwatch.llm.evidence import PanelStore
+    from rockwatch.llm.runtime import LLMRuntime
+
+    rc = cfg["regions"][region]
+    ctx = AgentContext(cfg, region, rc["splits"]["train"][0], rc["splits"]["test"][1])
+    store = PanelStore(P, pred, raw, ndyn, ctx)
+    rt = LLMRuntime(cfg, "verifier", provider=provider)
+    out = raw.copy()
+    rows = np.flatnonzero((raw >= 2) & fr.in_period)
+    # deterministic cap (D-035): verify the max_llm_calls highest-p candidates; the rest keep the deterministic level
+    order = rows[np.argsort(-pred["p"].to_numpy()[rows], kind="stable")]
+    todo, skipped = order[: rt.max_calls], order[rt.max_calls:]
+    dec: dict[str, int] = {"FALLBACK_CAP": int(len(skipped))} if len(skipped) else {}
+    for i in todo:
+        z, d = P.at[i, "zone_id"], P.at[i, "date"].strftime("%Y-%m-%d")
+        r = verify(rt, store, z, d, int(raw[i]), float(pred.at[i, "p"]), th, int(ndyn[i]), cfg["thresholds"]["corroboration_min_dynamic"])
+        out[i] = r["level_out"]
+        dec[r["decision"]] = dec.get(r["decision"], 0) + 1
+    usage = rt.usage()
+    usage.update(candidates=int(len(rows)), decisions=dec, levels_changed=int((out != raw).sum()))
+    return out, usage
+
+
+def evaluate(cfg: dict[str, Any], region: str, split: str, retrain: bool = False, llm: bool = False) -> dict[str, Any]:
+    """Full evaluation of one region/split (optionally with the LLM-Verifier on L2+ candidates)."""
     rc = cfg["regions"][region]
     P, short = load_inputs(cfg, region)
     models = None if retrain else load_models(cfg, region)
@@ -102,7 +130,7 @@ def evaluate(cfg: dict[str, Any], region: str, split: str, retrain: bool = False
     fr_val = make_frame(P, tuple(rc["splits"]["val"]), short)
     bs = json.loads((repo_path(cfg["paths"]["processed"]) / region / "build_summary.json").read_text(encoding="utf-8"))
     res: dict[str, Any] = {"region": region, "region_name": rc["name"], "split": split, "period": per,
-                           "banner": cfg["eval"]["banner"], "llm_verifier": "off",
+                           "banner": cfg["eval"]["banner"], "llm_verifier": "on" if llm else "off",
                            "data_coverage": {"zones_total": bs["zones_total"], "zones_missing_weather": len(bs["zones_missing_weather"]),
                                              "partial": bool(bs["zones_missing_weather"])}}
     # ---- full model
@@ -111,6 +139,11 @@ def evaluate(cfg: dict[str, Any], region: str, split: str, retrain: bool = False
     ndyn = n_dynamic_positive(pred, cfg)
     p = pred["p"].to_numpy()
     raw = raw_levels(p, ndyn, full.thresholds, cfg["thresholds"]["corroboration_min_dynamic"])
+    m_off = None
+    if llm:
+        th = {k: v for k, v in full.thresholds.items() if k != "sweep"}
+        m_off = metrics(match(fr, (raw >= 2).astype(np.int8) * 2, 2))
+        raw, res["llm_usage"] = apply_llm_verifier(cfg, region, P, pred, raw, ndyn, th, fr)
     m, det = _eval_levels(fr, raw, cfg)
     m["level_counts_active_days"] = {f"L{k}": int(((det["active"] == k) & fr.in_period).sum()) for k in range(4)}
     m["l1plus"] = metrics(match(fr, (raw >= 1).astype(np.int8) * 2, 2))
@@ -146,6 +179,9 @@ def evaluate(cfg: dict[str, Any], region: str, split: str, retrain: bool = False
             ts = grid(pr["p"].to_numpy()[fr.in_period], 60)
             curves[name] = [(x["recall_at"], x["precision_episode"]) for x in sweep(fr, pr["p"].to_numpy(), ts)]
     base["B5_rain_only"] = abl["rain"]
+    if llm:
+        abl["full (LLM-Verifier off)"] = {**m_off, "val_ap": full.train_info.get("val_ap"), "t2": full.thresholds["t2"]}
+        abl["full + LLM-Verifier"] = {**{k: m[k] for k in m if k != "ci95"}, "val_ap": full.train_info.get("val_ap"), "t2": full.thresholds["t2"]}
     res["baselines"] = base
     res["ablations"] = abl
     for nm, sc in (("B1_P1", s1), ("B3_climatology", s3)):

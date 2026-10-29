@@ -32,10 +32,12 @@ class MemoryBus(Bus):
                 self.offsets[consumer] = len(self.log)
         return out
 
-    def _read(self, topics, since_seq, kind, limit, latest):
+    def _read(self, topics, since_seq, kind, limit, latest, sim_date=None, zone_id=None, date_from=None):
         ts = set(topics)
         with self.lock:
-            out = [e for e in self.log[since_seq:] if e.topic in ts and (kind is None or e.kind == kind)]
+            out = [e for e in self.log[since_seq:] if e.topic in ts and (kind is None or e.kind == kind)
+                   and (sim_date is None or e.sim_date == sim_date) and (zone_id is None or e.zone_id == zone_id)
+                   and (date_from is None or (e.sim_date or "") >= date_from)]
         if latest:
             out = out[-(limit or 1):]
         elif limit:

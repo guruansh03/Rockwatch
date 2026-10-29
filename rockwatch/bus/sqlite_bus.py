@@ -15,6 +15,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT, msg_id TEXT UNIQUE, topic TEXT, agent_id TEXT,
   zone_id TEXT, sim_date TEXT, wall_ts REAL, kind TEXT, payload TEXT, confidence REAL, quality TEXT, evidence_ids TEXT);
 CREATE INDEX IF NOT EXISTS ix_topic_seq ON events(topic, seq);
+CREATE INDEX IF NOT EXISTS ix_topic_date ON events(topic, sim_date, zone_id);
 CREATE TABLE IF NOT EXISTS offsets(consumer TEXT PRIMARY KEY, seq INTEGER);
 CREATE TABLE IF NOT EXISTS registry(agent_id TEXT PRIMARY KEY, cmd TEXT, pid INTEGER, started REAL, auto_restart INTEGER, restarts INTEGER DEFAULT 0);
 """
@@ -78,12 +79,13 @@ class SqliteBus(Bus):
             return rows
         return [self._env(r) for r in self._retry(go)]
 
-    def _read(self, topics, since_seq, kind, limit, latest):
+    def _read(self, topics, since_seq, kind, limit, latest, sim_date=None, zone_id=None, date_from=None):
         q = f"SELECT seq,{','.join(COLS)} FROM events WHERE seq>? AND topic IN ({','.join('?' * len(topics))})"
         args: list = [since_seq, *topics]
-        if kind:
-            q += " AND kind=?"
-            args.append(kind)
+        for col, val, op in (("kind", kind, "="), ("sim_date", sim_date, "="), ("zone_id", zone_id, "="), ("sim_date", date_from, ">=")):
+            if val is not None:
+                q += f" AND {col}{op}?"
+                args.append(val)
         q += " ORDER BY seq DESC" if latest else " ORDER BY seq"
         if limit or latest:
             q += " LIMIT ?"
