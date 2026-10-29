@@ -101,3 +101,25 @@ llm:
   max_tool_turns: 4
   max_llm_calls: 500
   prices: null              # never hardcoded
+
+fusion:
+  neg_per_pos: 50           # negatives sampled per positive (all positives kept); actual ratio recorded
+  C_grid: [0.01, 0.1, 1.0]  # L2 strength chosen by val average precision
+  cap: 3.0                  # per-modality contribution clip (log-odds)
+  seed: 25071
+  quality_weights: {ok: 1.0, degraded: 0.5, missing: 0.0}
+  dynamic_modalities: [rain, thermal, seismic]
+
+thresholds:
+  t1_recall: 0.9            # L1: largest t with val recall_at >= 0.9
+  t3_min_recall: 0.2        # L3: max precision with recall >= 0.2 AND corroboration
+  n_grid: 200
+  corroboration_min_dynamic: 2
+
+eval:
+  level_main: 2
+  bootstrap_n: 1000
+  storm_gap_days: 3
+  random_baseline_draws: 20
+  clim_smoothing_k: 30
+  banner: "US natural-slope data; not mine performance; precision is a lower bound (unreported events)."

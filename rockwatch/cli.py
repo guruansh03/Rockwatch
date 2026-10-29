@@ -111,6 +111,54 @@ def cmd_build_data(cfg: dict, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_train(cfg: dict, args: argparse.Namespace) -> int:
+    """Fit fusion + ablations, Platt on val, thresholds on val. Saves processed/<region>/models/*.json."""
+    from rockwatch.eval.runner import load_inputs, train_models
+
+    for r in args.regions:
+        P, short = load_inputs(cfg, r)
+        ms = train_models(cfg, r, P, short)
+        th = ms["full"].thresholds
+        print(f"{r}: full C={ms['full'].C} val_AP={ms['full'].train_info['val_ap']:.4f} "
+              f"t1={th['t1']:.4f} t2={th['t2']:.4f} t3={th['t3']} L3={th['l3_enabled']}")
+    return 0
+
+
+def _existing_test_reports(cfg: dict, region: str) -> list:
+    rep = repo_path(cfg["paths"]["reports"])
+    return sorted(p for p in rep.glob(f"eval_*_{region}_test") if (p / "metrics.json").exists())
+
+
+def cmd_eval(cfg: dict, args: argparse.Namespace) -> int:
+    """Evaluate a split. Test only with --final (once; rerun needs --force-rerun-with-reason)."""
+    import datetime as dt
+    from rockwatch.eval.report import write_report
+    from rockwatch.eval.runner import evaluate, git_hash
+
+    if args.llm == "on":
+        print("LLM verifier not implemented until Phase 4", file=sys.stderr)
+        return 3
+    for r in args.regions:
+        if args.split == "test":
+            if not args.final:
+                print("REFUSED: the test split is evaluated only via `eval --split test --final` after CP2.", file=sys.stderr)
+                return 4
+            prev = _existing_test_reports(cfg, r)
+            if prev and not args.force_rerun_with_reason:
+                print(f"REFUSED: test metrics already exist ({prev[-1].name}). Use --force-rerun-with-reason.", file=sys.stderr)
+                return 4
+            log = repo_path(cfg["paths"]["reports"]) / "final_runs.log"
+            log.parent.mkdir(parents=True, exist_ok=True)
+            with log.open("a", encoding="utf-8") as f:
+                f.write(f"{dt.datetime.now().isoformat()} region={r} git={git_hash()} reason={args.force_rerun_with_reason or 'first final run'}\n")
+        res = evaluate(cfg, r, args.split, retrain=args.retrain)
+        out = write_report(res, cfg, git_hash())
+        m = res["rockwatch"]
+        print(f"{r}/{args.split}: recall_before={m['recall_before']} recall_at={m['recall_at']} "
+              f"prec_ep={m['precision_episode']} f1={m['f1_at']} alert_frac={m['alert_day_fraction']} -> {out}")
+    return 0
+
+
 def _not_yet(phase: str):
     def f(cfg: dict, args: argparse.Namespace) -> int:
         print(f"not implemented yet ({phase})", file=sys.stderr)
@@ -140,13 +188,17 @@ def build_parser() -> argparse.ArgumentParser:
     bd.add_argument("--regions", nargs="+", default=["A", "Y"])
     bd.add_argument("--allow-partial", action="store_true")
     bd.set_defaults(func=cmd_build_data)
-    sp.add_parser("train").set_defaults(func=_not_yet("P2"))
+    t = sp.add_parser("train")
+    t.add_argument("--regions", nargs="+", default=["A", "Y"])
+    t.set_defaults(func=cmd_train)
     e = sp.add_parser("eval")
     e.add_argument("--split", choices=["val", "test"], required=True)
     e.add_argument("--final", action="store_true")
     e.add_argument("--llm", choices=["on", "off"], default="off")
     e.add_argument("--force-rerun-with-reason", default=None)
-    e.set_defaults(func=_not_yet("P2/P6"))
+    e.add_argument("--regions", nargs="+", default=["A"])
+    e.add_argument("--retrain", action="store_true")
+    e.set_defaults(func=cmd_eval)
     d = sp.add_parser("run-demo")
     d.add_argument("--scenario", required=True)
     d.add_argument("--bus", choices=["sqlite", "memory", "redis"], default="sqlite")

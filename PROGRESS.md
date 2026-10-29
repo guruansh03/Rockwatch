@@ -15,5 +15,16 @@
 - Full `build-data` + final data card once weather complete.
 - CLAUDE.md copy into repo root.
 
+## Phase 2 — fusion + baselines + eval harness (val only) — CODE DONE, full-data rerun pending
+### Done
+- `fusion/{model,thresholds}.py`: L2-LR with per-modality contributions (clip ±3), quality weights, Platt on val, t1/t2/t3 rules (L3 corroborated).
+- `eval/{matching,metrics,bootstrap,baselines,runner,report}.py`; CLI `train`, `eval --split val` (test guarded).
+- Report folder: metrics.json/.md, pr_curve.png, lead_days.png, ablation.md, llm_usage.json, frozen config + git hash, banner.
+- Tests: 33 passing (8 matching cases incl. short-range, multi-event, zone boundaries, period clipping, bootstrap; CLI test guard).
+- Smoke run on PARTIAL data (14/70 A zones): val recall_at 0.61, episode precision 0.25, alert-day fraction 0.22.
+  Observation: B3 seasonal climatology strong on val (zone×month prior). Re-check on full data.
+### Pending
+- Full A (70 zones) + Yosemite weather → rebuild → train → val report.
+
 ## Deviations
 - DECISIONS.md D-001..D-019.
