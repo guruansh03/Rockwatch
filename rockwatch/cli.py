@@ -63,6 +63,54 @@ def cmd_profile(cfg: dict, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_build_zones(cfg: dict, args: argparse.Namespace) -> int:
+    """Write data/processed/<region>/zones.parquet."""
+    import pandas as pd
+    from rockwatch.data.zones import build_region_zones
+
+    inv = pd.read_parquet(repo_path(cfg["paths"]["interim"]) / "inventory_clean.parquet")
+    for region in args.regions:
+        z = build_region_zones(cfg, region, inv)
+        out = repo_path(cfg["paths"]["processed"]) / region
+        out.mkdir(parents=True, exist_ok=True)
+        z.to_parquet(out / "zones.parquet", index=False)
+        print(f"{region}: {len(z)} zones {z['kind'].value_counts().to_dict()}")
+    return 0
+
+
+def _zone_requests(cfg: dict, region: str):
+    import pandas as pd
+    from rockwatch.data.weather import ZoneRequest
+    from rockwatch.data.zones import weather_range
+
+    z = pd.read_parquet(repo_path(cfg["paths"]["processed"]) / region / "zones.parquet")
+    a, b = weather_range(cfg["regions"][region], cfg["zones"]["antecedent_days"])
+    return [ZoneRequest(region, r.zone_id, float(r.lat), float(r.lon), a, b) for r in z.itertuples()]
+
+
+def cmd_fetch_weather(cfg: dict, args: argparse.Namespace) -> int:
+    """Budgeted, resumable Open-Meteo fetch. Exit 0 complete, 10 partial (re-run later)."""
+    from rockwatch.data.weather import run_batch
+
+    reqs = [q for r in args.regions for q in _zone_requests(cfg, r)]
+    res = run_batch(reqs, cfg, repo_path(cfg["paths"]["cache"]), args.budget_s, args.max_requests)
+    print(json.dumps(res))
+    return 0 if res["remaining"] == 0 else 10
+
+
+def cmd_build_data(cfg: dict, args: argparse.Namespace) -> int:
+    """Features + labels + splits for each region (weather must be cached; see fetch-weather)."""
+    from rockwatch.data.build import build_region
+
+    for r in args.regions:
+        s = build_region(cfg, r, allow_partial=args.allow_partial)
+        print(json.dumps({k: s[k] for k in ("region", "zones_total", "panel_rows", "by_split")}, default=str))
+        print(f"{r}: missing weather zones = {len(s['zones_missing_weather'])}")
+    from rockwatch.data.build import write_data_card
+    print(f"wrote {write_data_card(cfg, args.regions)}")
+    return 0
+
+
 def _not_yet(phase: str):
     def f(cfg: dict, args: argparse.Namespace) -> int:
         print(f"not implemented yet ({phase})", file=sys.stderr)
@@ -80,7 +128,18 @@ def build_parser() -> argparse.ArgumentParser:
     f.add_argument("--no-yosemite", dest="yosemite", action="store_false")
     f.set_defaults(func=cmd_fetch_inventory)
     sp.add_parser("profile").set_defaults(func=cmd_profile)
-    sp.add_parser("build-data").set_defaults(func=_not_yet("P1"))
+    z = sp.add_parser("build-zones")
+    z.add_argument("--regions", nargs="+", default=["A", "Y"])
+    z.set_defaults(func=cmd_build_zones)
+    fw = sp.add_parser("fetch-weather")
+    fw.add_argument("--regions", nargs="+", default=["A", "Y"])
+    fw.add_argument("--budget-s", type=float, default=3600.0)
+    fw.add_argument("--max-requests", type=int, default=None)
+    fw.set_defaults(func=cmd_fetch_weather)
+    bd = sp.add_parser("build-data")
+    bd.add_argument("--regions", nargs="+", default=["A", "Y"])
+    bd.add_argument("--allow-partial", action="store_true")
+    bd.set_defaults(func=cmd_build_data)
     sp.add_parser("train").set_defaults(func=_not_yet("P2"))
     e = sp.add_parser("eval")
     e.add_argument("--split", choices=["val", "test"], required=True)

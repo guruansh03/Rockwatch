@@ -9,6 +9,7 @@ pydantic>=2
 pyyaml
 python-dotenv
 openpyxl
+tzdata      # IANA tz db on Windows
 streamlit
 pydeck
 plotly

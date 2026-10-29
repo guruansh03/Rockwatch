@@ -51,10 +51,43 @@ yosemite:
   index_url: "https://pubs.usgs.gov/ds/746/"
   raw_dir: data/raw/yosemite
 
+# ---- CP1 decisions (2026-10-29, confirmed by user). Frozen: change only with a DECISIONS entry.
+main_region: A
+regions:
+  A:
+    name: "Anchorage / Seward Highway, Alaska (AK DOT)"
+    tz: America/Anchorage
+    truth: usgs_v3
+    bbox: [59.5, 62.5, -150.5, -147.5]     # lat0, lat1, lon0, lon1 (half-open)
+    exclude_eq_inventories_from_positives: false   # main P/R includes them; breakdown without
+    splits:
+      train: ["2006-01-01", "2015-02-10"]
+      val:   ["2015-03-13", "2018-03-15"]
+      test:  ["2018-04-15", "2022-06-30"]
+  Y:
+    name: "Yosemite Valley, California (USGS DS746 rockfall track)"
+    tz: America/Los_Angeles
+    truth: yosemite_ds746
+    single_zone: {zone_id: "yose", lat: 37.735, lon: -119.590}   # no coords in DS746
+    splits:
+      train: ["1951-01-01", "2008-01-08"]
+      val:   ["2008-02-08", "2010-04-03"]
+      test:  ["2010-05-04", "2011-12-31"]
+# Region B (Puget Sound/NW Oregon) dropped: Open-Meteo free quota infeasible (D-014).
+
+zones:
+  deg: 0.25
+  zero_feature_ratio: 0.25    # zero-feature cells sampled = ratio x feature cells
+  zero_feature_neighbor_only: true   # sample from 8-neighbours of feature cells (likely land)
+  seed: 25071
+  antecedent_days: 35         # weather fetched from train start - this
+
 weather:
   base_url: "https://archive-api.open-meteo.com/v1/archive"
   daily: [precipitation_sum, rain_sum, snowfall_sum, precipitation_hours, temperature_2m_max, temperature_2m_min]
-  max_calls_per_min: 500    # below 600/min free-tier limit
+  chunk_years: 17           # one request per zone if range fits; single request must stay < minutely quota
+  min_interval_s: 22        # pacing between requests (minutely quota ~600 weighted; ~150-260 per 16-yr request)
+  timeout_s: 60
 
 quakes:
   base_url: "https://earthquake.usgs.gov/fdsnws/event/1/query"
