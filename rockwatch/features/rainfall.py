@@ -39,3 +39,45 @@ def rain_features(w: pd.DataFrame, api_k: float = 0.9) -> pd.DataFrame:
     snow7 = w["snowfall_sum"].rolling(7, min_periods=1).sum()
     f["rain_on_snow"] = ((w["rain_sum"] > 0) & (snow7 > 0) & (w["temperature_2m_max"] > 0)).astype(float)
     return f
+
+
+# ---------------------------------------------------------------- streaming (agent) form; parity-tested vs rain_features
+HIST = 40
+
+
+def rain_state_init(w: pd.DataFrame, upto: pd.Timestamp, api_k: float = 0.9) -> dict:
+    """Warm state from history strictly before `upto`: last HIST days + API recursion over all history."""
+    h = w[w.index < upto]
+    p = h["precipitation_sum"]
+    api = float(antecedent_index(p, api_k).iloc[-1]) if len(p) else 0.0
+    t = h.tail(HIST)
+    return {"p": t["precipitation_sum"].tolist(), "snow": t["snowfall_sum"].tolist(), "api": api, "k": api_k}
+
+
+def _nan(x) -> float:
+    return float("nan") if x is None else float(x)
+
+
+def rain_step(state: dict, r: dict) -> tuple[dict, dict]:
+    """Pure step: state + today's reading (precip, rain, snow, hours, tmax) → (state', features). NaN semantics match batch."""
+    p_today = _nan(r.get("precipitation_sum"))
+    p = (state["p"] + [p_today])[-HIST:]
+    snow = (state["snow"] + [_nan(r.get("snowfall_sum"))])[-HIST:]
+    api = state["k"] * state["api"] + (0.0 if np.isnan(p_today) else p_today)
+    arr = np.array(p, float)
+
+    def wsum(a: np.ndarray) -> float:
+        return float(a.sum()) if len(a) and not np.isnan(a).any() else float("nan")
+    P3 = wsum(arr[-3:]) if len(arr) >= 3 else float("nan")
+    P15 = wsum(arr[-18:-3]) if len(arr) >= 18 else float("nan")
+    P30 = wsum(arr[-30:]) if len(arr) >= 30 else float("nan")
+    hours = _nan(r.get("precipitation_hours"))
+    hrs0 = 0.0 if np.isnan(hours) else hours
+    s7 = np.nansum(np.array(snow[-7:], float))
+    rain = _nan(r.get("rain_sum"))
+    tmax = _nan(r.get("temperature_2m_max"))
+    f = {"P1": p_today, "P3": P3, "P15": P15, "P30": P30, "API": api, "precip_hours": hours,
+         "intensity": p_today / max(hrs0, 1.0),
+         "seattle_ct_margin_in": (P3 / MM_PER_IN - (3.5 - 0.67 * (P15 / MM_PER_IN))),
+         "rain_on_snow": float(bool(rain > 0) and bool(s7 > 0) and bool(tmax > 0))}
+    return {"p": p, "snow": snow, "api": api, "k": state["k"]}, f

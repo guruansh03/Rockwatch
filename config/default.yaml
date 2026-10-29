@@ -123,3 +123,23 @@ eval:
   random_baseline_draws: 20
   clim_smoothing_k: 30
   banner: "US natural-slope data; not mine performance; precision is a lower bound (unreported events)."
+
+agents:
+  rain_sensor_groups: 2
+  watermarks:              # deadlines after a day's tick, as a fraction of `speed`; normal days close on completeness
+    evidence_missing: 0.90   # evidence agent: no reading by then → quality=missing (D-029)
+    quality: 0.80            # quality agent: close day, publish flags summary
+    context: 1.00            # context agent: regional extent from rain evidence received
+    fusion: 1.20             # fusion: fuse whatever evidence exists (degraded)
+    alert: 1.50              # alert agent: close the day with the verified risks received
+  stale_after_s: 6.0         # supervisor: no heartbeat → stale
+  restart_after_s: 12.0      # supervisor: auto-restart (if enabled for that agent)
+  ack_renotify_days: 2       # alert agent: unacked L2+ re-notified after N sim-days
+  stuck_days: 4              # quality: identical Tmax & Tmin this many days → degraded
+  outlier_mm: 75             # quality: P1 > max(outlier_mm, 6×neighbour median) → degraded
+
+scenarios:
+  dev_val:                   # development scenario (VALIDATION period; test scenarios chosen at CP2)
+    region: A
+    start: "2017-08-20"
+    days: 60

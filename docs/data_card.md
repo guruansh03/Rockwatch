@@ -18,16 +18,16 @@
 
 ## Region A: Anchorage / Seward Highway, Alaska (AK DOT)
 
-- Zones: 70 {'feature': 56, 'zero': 14}; missing weather: 56.
-- Panel: 84350 zone-days, 2006-01-01 → 2022-06-30; rows with any missing weather var: 0.
+- Zones: 70 {'feature': 56, 'zero': 14}; missing weather: 50.
+- Panel: 120500 zone-days, 2006-01-01 → 2022-06-30; rows with any missing weather var: 0.
 - Quakes M≥3 in buffer: 4561 (max M7.1).
-- Exact events: 3376; in unselected zones (dropped, leakage-safe selection): 541; in gaps/outside splits: 68; short-range events: 0.
+- Exact events: 3376; in unselected zones (dropped, leakage-safe selection): 189; in gaps/outside splits: 68; short-range events: 0.
 
 | split | zone_days | pos_zone_days | pos_fall | pos_no_eq | pos_rate | events |
 |---|---|---|---|---|---|---|
-| train | 46592 | 1769 | 1687 | 1769 | 0.03797 | 1899 |
-| val | 15386 | 391 | 362 | 391 | 0.02541 | 417 |
-| test | 21532 | 454 | 442 | 454 | 0.02108 | 477 |
+| train | 66560 | 1838 | 1733 | 1838 | 0.02761 | 1972 |
+| val | 21980 | 565 | 532 | 565 | 0.02571 | 597 |
+| test | 30760 | 533 | 518 | 533 | 0.01733 | 560 |
 
 ## Known biases
 

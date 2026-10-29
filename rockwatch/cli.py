@@ -159,6 +159,71 @@ def cmd_eval(cfg: dict, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_run_demo(cfg: dict, args: argparse.Namespace) -> int:
+    """Spawn all agent processes + replay engine (dashboard added in Phase 5; --headless prints a summary)."""
+    if args.bus == "redis":
+        print("Redis backend cut (cut list #1); use --bus sqlite", file=sys.stderr)
+        return 3
+    if args.bus == "memory":
+        from rockwatch.agents.base import AgentContext
+        from rockwatch.agents.run import build
+        from rockwatch.bus.memory import MemoryBus
+        from rockwatch.replay.engine import run_local
+        from rockwatch.replay.scenarios import resolve
+        region, start, end = resolve(cfg, args.scenario, args.days)
+        ctx = AgentContext(cfg, region, start, end, args.speed)
+        bus = MemoryBus()
+        run_local(ctx, bus, build(ctx, bus))
+        print(f"memory bus (in-process, deterministic): {len(bus.log)} messages over {region} {start}→{end}")
+        return 0
+    from rockwatch.replay.launcher import launch
+    if not args.headless:
+        print("dashboard arrives in Phase 5 — running headless")
+    kill = (args.kill_agent, args.kill_at_day) if args.kill_agent else None
+    s = launch(cfg, args.scenario, args.speed, args.days, kill, set(args.auto_restart or []))
+    print(json.dumps({k: s[k] for k in ("sim_days", "days_with_daily_state", "fused_msgs", "active_level_zone_days",
+                                         "supervisor_flags", "degraded_fused_days", "eval_live_last", "offline_eval", "run_dir")},
+                     indent=1, default=str))
+    return 0 if s["days_with_daily_state"] == s["sim_days"] else 5
+
+
+def cmd_agents(cfg: dict, args: argparse.Namespace) -> int:
+    """agents status | kill <agent_id>  (latest run unless --run)."""
+    import os
+    import signal
+    import time
+    from pathlib import Path
+    from rockwatch.bus.sqlite_bus import SqliteBus
+    from rockwatch.replay.launcher import heartbeats, latest_run
+
+    run = Path(args.run) if args.run else latest_run(cfg)
+    if run is None:
+        print("no runs found", file=sys.stderr)
+        return 2
+    bus = SqliteBus(run / "bus.sqlite")
+    if args.action == "kill":
+        reg = {r["agent_id"]: r for r in bus.registry()}
+        if args.target not in reg:
+            print(f"unknown agent {args.target}", file=sys.stderr)
+            return 2
+        os.kill(reg[args.target]["pid"], signal.SIGTERM)
+        print(f"killed {args.target} (pid {reg[args.target]['pid']})")
+        return 0
+    hb = heartbeats(bus)
+    flags = {}
+    for e in bus.read("cli", ["quality.flags"]):
+        if e.kind in ("agent_stale", "agent_recovered"):
+            flags[e.payload["agent_id"]] = e.kind
+    now = time.time()
+    print(f"run: {run.name}")
+    print(f"{'agent':26s} {'pid':>7s} {'restarts':>8s} {'last_hb_s':>9s}  supervisor")
+    for r in bus.registry():
+        a = r["agent_id"]
+        age = now - hb[a] if a in hb else float("nan")
+        print(f"{a:26s} {r['pid']:7d} {r['restarts']:8d} {age:9.1f}  {flags.get(a, 'ok')}")
+    return 0
+
+
 def _not_yet(phase: str):
     def f(cfg: dict, args: argparse.Namespace) -> int:
         print(f"not implemented yet ({phase})", file=sys.stderr)
@@ -203,10 +268,17 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--scenario", required=True)
     d.add_argument("--bus", choices=["sqlite", "memory", "redis"], default="sqlite")
     d.add_argument("--speed", type=float, default=1.5)
-    d.set_defaults(func=_not_yet("P3/P5"))
+    d.add_argument("--days", type=int, default=None)
+    d.add_argument("--headless", action="store_true")
+    d.add_argument("--kill-agent", default=None, help="fault injection: agent_id to kill")
+    d.add_argument("--kill-at-day", type=int, default=10)
+    d.add_argument("--auto-restart", nargs="*", default=None, help="agent_ids the supervisor may restart")
+    d.set_defaults(func=cmd_run_demo)
     a = sp.add_parser("agents")
-    a.add_argument("action", choices=["status"])
-    a.set_defaults(func=_not_yet("P3"))
+    a.add_argument("action", choices=["status", "kill"])
+    a.add_argument("target", nargs="?", default=None)
+    a.add_argument("--run", default=None)
+    a.set_defaults(func=cmd_agents)
     return p
 
 

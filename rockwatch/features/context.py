@@ -20,7 +20,8 @@ def regional_extent(panel: pd.DataFrame, val_range: tuple[str, str]) -> pd.Serie
     """panel: zone_id, date, P3. Returns extent per row (same index)."""
     v = panel[(panel["date"] >= val_range[0]) & (panel["date"] <= val_range[1])]
     med = v.groupby("zone_id")["P3"].median()
-    above = (panel["P3"] > panel["zone_id"].map(med)).astype(float)
+    # round to 1e-6 mm so batch (pandas rolling) and streaming (numpy) sums compare identically at ties (D-028)
+    above = (panel["P3"].round(6) > panel["zone_id"].map(med).round(6)).astype(float)
     above[panel["P3"].isna()] = np.nan
     frac = above.groupby(panel["date"]).mean()
     return panel["date"].map(frac)

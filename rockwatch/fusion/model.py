@@ -64,6 +64,20 @@ class FusionModel:
             X[c] = (X[c] - self.mean[c]) / self.std[c]
         return X.fillna(0.0)  # missing → train mean (neutral)
 
+    def group_contribution(self, group: str, feats: dict[str, float]) -> float:
+        """Fast scalar contribution for one modality (agents). Same transform/standardise/clip as batch."""
+        tot = 0.0
+        for c in self.groups[group]:
+            x = feats.get(c)
+            x = float("nan") if x is None else float(x)
+            if c in LOG1P:
+                x = float(np.log1p(max(x, 0.0))) if not np.isnan(x) else x
+            elif c == "eq_min_dist_km_3d":
+                x = min(max(1.0 - x / 100.0, 0.0), 1.0) if not np.isnan(x) else x
+            z = (x - self.mean[c]) / self.std[c]
+            tot += 0.0 if np.isnan(z) else self.coef[c] * z
+        return float(min(max(tot, -self.cap), self.cap))
+
     def contributions(self, df: pd.DataFrame) -> pd.DataFrame:
         """Per-modality clipped log-odds contributions."""
         X = self.standardise(df)
