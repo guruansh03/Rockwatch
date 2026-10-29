@@ -54,6 +54,9 @@ def write_report(res: dict[str, Any], cfg: dict[str, Any], git: str, llm_usage: 
     L = [f"# RockWatch evaluation — region {res['region']} ({res['region_name']}), split **{res['split']}**\n",
          f"> **{res['banner']}** Lead time in days (daily inputs); no time-of-failure prediction.\n",
          f"Period {res['period'][0]} → {res['period'][1]} · git `{git[:10]}` · LLM verifier: {res['llm_verifier']} · alert level for P/R: L2+\n"]
+    dc = res.get("data_coverage", {})
+    if dc.get("partial"):
+        L.append(f"**⚠ PARTIAL DATA: {dc['zones_missing_weather']} of {dc['zones_total']} zones lack weather. Smoke test only — not a result.**\n")
     if res["split"] == "val":
         L.append("_Validation split: thresholds and baseline cut-offs were tuned on this split, so these numbers are optimistic._\n")
     L.append(f"Event-days: {rw['n_event_days']} · short-range events: {rw['n_short_range']} · zone-days: {rw['zone_days']}\n")

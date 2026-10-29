@@ -2,7 +2,9 @@
 
 > **US natural-slope data; not mine performance; precision is a lower bound (unreported events).** Lead time in days (daily inputs); no time-of-failure prediction.
 
-Period 2015-03-13 → 2018-03-15 · git `5d53543e19` · LLM verifier: off · alert level for P/R: L2+
+Period 2015-03-13 → 2018-03-15 · git `562fa5c7bf` · LLM verifier: off · alert level for P/R: L2+
+
+**⚠ PARTIAL DATA: 56 of 70 zones lack weather. Smoke test only — not a result.**
 
 _Validation split: thresholds and baseline cut-offs were tuned on this split, so these numbers are optimistic._
 
@@ -10,17 +12,17 @@ Event-days: 391 · short-range events: 0 · zone-days: 15386
 
 ## RockWatch vs baselines (95% CI: block bootstrap by storm cluster, 1000 resamples, 88 blocks)
 
-| system | recall_before | recall_at | precision_episode | precision_day | f1_at | false_alarms_per_zone_year | alert_day_fraction | episodes |
-|---|---|---|---|---|---|---|---|---|
-| RockWatch (full fusion) | 0.588 [0.434, 0.713] | 0.614 [0.458, 0.741] | 0.254 [0.131, 0.392] | 0.101 [0.062, 0.140] | 0.359 [0.209, 0.503] | 2.231 [1.598, 2.751] | 0.219 [0.186, 0.253] | 126 |
+| system | recall_before | recall_at | precision_episode | precision_day | f1_at | f1_day | false_alarms_per_zone_year | alert_day_fraction | episodes |
+|---|---|---|---|---|---|---|---|---|---|
+| RockWatch (full fusion) | 0.588 [0.434, 0.713] | 0.614 [0.458, 0.741] | 0.254 [0.131, 0.392] | 0.101 [0.062, 0.140] | 0.359 [0.209, 0.503] | 0.173 [0.109, 0.233] | 2.231 [1.598, 2.751] | 0.219 [0.186, 0.253] | 126 |
 
-| system | recall_before | recall_at | precision_episode | precision_day | f1_at | false_alarms_per_zone_year | alert_day_fraction | episodes |
-|---|---|---|---|---|---|---|---|---|
-| B1_P1_threshold | 0.683 [0.588, 0.815] | 0.765 [0.679, 0.886] | 0.088 [0.064, 0.113] | 0.042 [0.029, 0.055] | 0.157 [0.119, 0.197] | 30.861 [27.147, 34.114] | 0.652 [0.608, 0.698] | 1425 |
-| B2_seattle_ct_designed_for_seattle | 0.066 [0.032, 0.117] | 0.074 [0.035, 0.134] | 0.140 [0.082, 0.203] | 0.032 [0.015, 0.048] | 0.097 [0.052, 0.148] | 2.326 [1.734, 3.115] | 0.091 [0.074, 0.108] | 114 |
-| B3_seasonal_climatology | 0.795 [0.687, 0.873] | 0.801 [0.693, 0.880] | 0.677 [0.429, 0.870] | 0.122 [0.083, 0.159] | 0.734 [0.552, 0.839] | 0.237 [0.066, 0.381] | 0.252 [0.209, 0.295] | 31 |
-| B4_random_matched_rate | 0.216 | 0.305 | 0.055 | 0.039 | 0.093 | 31.526 | 0.220 | – |
-| B5_rain_only | 0.655 | 0.719 | 0.100 | 0.045 | 0.176 | 20.012 | 0.588 | 937 |
+| system | recall_before | recall_at | precision_episode | precision_day | f1_at | f1_day | false_alarms_per_zone_year | alert_day_fraction | episodes |
+|---|---|---|---|---|---|---|---|---|---|
+| B1_P1_threshold | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] | 0.571 | 0.040 [0.027, 0.055] | 0.727 | 0.077 [0.052, 0.105] | 0.142 [0.000, 0.000] | 1.000 [1.000, 1.000] | 14 |
+| B2_seattle_ct_designed_for_seattle | 0.066 [0.032, 0.117] | 0.074 [0.035, 0.134] | 0.140 [0.082, 0.203] | 0.032 [0.015, 0.048] | 0.097 [0.052, 0.148] | 0.044 [0.022, 0.068] | 2.326 [1.734, 3.115] | 0.091 [0.074, 0.108] | 114 |
+| B3_seasonal_climatology | 0.795 [0.687, 0.873] | 0.801 [0.693, 0.880] | 0.677 [0.429, 0.870] | 0.122 [0.083, 0.159] | 0.734 [0.552, 0.839] | 0.212 [0.150, 0.268] | 0.237 [0.066, 0.381] | 0.252 [0.209, 0.295] | 31 |
+| B4_random_matched_rate | 0.216 | 0.305 | 0.055 | 0.039 | 0.093 | – | 31.526 | 0.220 | – |
+| B5_rain_only | 0.655 | 0.719 | 0.100 | 0.045 | 0.176 | 0.084 | 20.012 | 0.588 | 937 |
 
 B4 = mean over random draws at RockWatch's alert-day fraction (range95 in metrics.json). B2 is the published USGS Seattle cumulative threshold, designed for Seattle, applied unchanged.
 

@@ -100,8 +100,11 @@ def evaluate(cfg: dict[str, Any], region: str, split: str, retrain: bool = False
     per = tuple(rc["splits"][split])
     fr = make_frame(P, per, short)
     fr_val = make_frame(P, tuple(rc["splits"]["val"]), short)
+    bs = json.loads((repo_path(cfg["paths"]["processed"]) / region / "build_summary.json").read_text(encoding="utf-8"))
     res: dict[str, Any] = {"region": region, "region_name": rc["name"], "split": split, "period": per,
-                           "banner": cfg["eval"]["banner"], "llm_verifier": "off"}
+                           "banner": cfg["eval"]["banner"], "llm_verifier": "off",
+                           "data_coverage": {"zones_total": bs["zones_total"], "zones_missing_weather": len(bs["zones_missing_weather"]),
+                                             "partial": bool(bs["zones_missing_weather"])}}
     # ---- full model
     full = models["full"]
     pred = full.predict(P)
