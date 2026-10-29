@@ -110,6 +110,9 @@ class Agent:
     def restore(self, bus: Bus) -> None:
         """Rebuild state after restart (default: nothing)."""
 
+    def on_control(self, env: Envelope) -> None:
+        """Fault-injection / operator controls (agents.control kinds other than stop)."""
+
     # ---- helpers
     def on_clock(self, env: Envelope) -> None:
         if env.topic == "sim.clock" and env.kind == "tick":
@@ -142,6 +145,7 @@ def run_loop(agent: Agent, bus: Bus, poll_s: float = 0.05, max_wall_s: float | N
                 bus.publish(agent.msg("agents.heartbeat", agent.current_day, {"pid": os.getpid(), "stopping": True}, kind="heartbeat"))
                 return
             if env.topic == "agents.control":
+                agent.on_control(env)
                 continue
             agent.on_clock(env)
             try:

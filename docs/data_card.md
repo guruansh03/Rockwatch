@@ -18,16 +18,29 @@
 
 ## Region A: Anchorage / Seward Highway, Alaska (AK DOT)
 
-- Zones: 70 {'feature': 56, 'zero': 14}; missing weather: 50.
-- Panel: 120500 zone-days, 2006-01-01 → 2022-06-30; rows with any missing weather var: 0.
+- Zones: 70 {'feature': 56, 'zero': 14}; missing weather: 44.
+- Panel: 156650 zone-days, 2006-01-01 → 2022-06-30; rows with any missing weather var: 0.
 - Quakes M≥3 in buffer: 4561 (max M7.1).
-- Exact events: 3376; in unselected zones (dropped, leakage-safe selection): 189; in gaps/outside splits: 68; short-range events: 0.
+- Exact events: 3376; in unselected zones (dropped, leakage-safe selection): 87; in gaps/outside splits: 68; short-range events: 0.
 
 | split | zone_days | pos_zone_days | pos_fall | pos_no_eq | pos_rate | events |
 |---|---|---|---|---|---|---|
-| train | 66560 | 1838 | 1733 | 1838 | 0.02761 | 1972 |
-| val | 21980 | 565 | 532 | 565 | 0.02571 | 597 |
-| test | 30760 | 533 | 518 | 533 | 0.01733 | 560 |
+| train | 86528 | 1861 | 1754 | 1861 | 0.02151 | 1995 |
+| val | 28574 | 589 | 555 | 589 | 0.02061 | 622 |
+| test | 39988 | 584 | 567 | 584 | 0.0146 | 613 |
+
+## Region Y: Yosemite Valley, California (USGS DS746 rockfall track)
+
+- Zones: 1 {'single': 1}; missing weather: 0.
+- Panel: 22280 zone-days, 1951-01-01 → 2011-12-31; rows with any missing weather var: 0.
+- Quakes M≥3 in buffer: 9595 (max M7.1).
+- Exact events: 627; in unselected zones (dropped, leakage-safe selection): 0; in gaps/outside splits: 90; short-range events: 0.
+
+| split | zone_days | pos_zone_days | pos_fall | pos_no_eq | pos_rate | events |
+|---|---|---|---|---|---|---|
+| train | 20827 | 253 | 177 | 247 | 0.01215 | 322 |
+| val | 786 | 80 | 73 | 80 | 0.10178 | 111 |
+| test | 607 | 80 | 72 | 80 | 0.1318 | 104 |
 
 ## Known biases
 

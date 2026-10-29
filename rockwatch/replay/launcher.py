@@ -37,7 +37,8 @@ def heartbeats(bus) -> dict[str, float]:
 
 
 def launch(cfg: dict[str, Any], scenario: str, speed: float, days: int | None = None, kill: tuple[str, int] | None = None,
-           auto_restart: set[str] | None = None, log=print, llm: str = "off") -> dict[str, Any]:
+           auto_restart: set[str] | None = None, log=print, llm: str = "off", dashboard: bool = False, port: int = 8501,
+           keep_open: bool = True) -> dict[str, Any]:
     from rockwatch.bus.sqlite_bus import SqliteBus
     from rockwatch.agents.evaluator import recompute_from_log
 
@@ -68,6 +69,15 @@ def launch(cfg: dict[str, Any], scenario: str, speed: float, days: int | None = 
     else:
         raise RuntimeError("agents not ready after 120 s")
     log(f"all agents up in {time.time() - t0:.1f}s; replaying {start} → {end} at {speed}s/day")
+    dash = None
+    if dashboard:
+        import os
+        env = {**os.environ, "ROCKWATCH_RUN_DIR": str(run_dir)}
+        dash = subprocess.Popen([sys.executable, "-m", "streamlit", "run", str(REPO_ROOT / "rockwatch" / "dashboard" / "app.py"),
+                                 "--server.headless", "true", "--server.port", str(port), "--browser.gatherUsageStats", "false"],
+                                cwd=str(REPO_ROOT), env=env, stdout=open(run_dir / "dashboard.log", "w"), stderr=subprocess.STDOUT)
+        log(f"dashboard: http://localhost:{port}  (opening in ~5 s)")
+        time.sleep(5)
     eng = Engine(ctx, bus)
 
     def on_day(i, d):
@@ -95,6 +105,14 @@ def launch(cfg: dict[str, Any], scenario: str, speed: float, days: int | None = 
         except subprocess.TimeoutExpired:
             p.terminate()
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=1, default=str), encoding="utf-8")
+    if dash is not None:
+        if keep_open:
+            log("replay finished — dashboard stays up for review; press Ctrl+C to exit")
+            try:
+                dash.wait()
+            except KeyboardInterrupt:
+                pass
+        dash.terminate()
     return summary
 
 

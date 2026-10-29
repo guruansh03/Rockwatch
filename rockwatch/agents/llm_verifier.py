@@ -59,11 +59,20 @@ class VerifierAgent(Agent):
         self.th = {k: v for k, v in th.items() if k != "sweep"}
         self.min_dyn = ctx.cfg["thresholds"]["corroboration_min_dynamic"]
 
+    offline = False
+
+    def on_control(self, env):
+        if env.kind == "llm_offline":
+            self.offline = bool(env.payload.get("on", True))
+
     def handle(self, env):
         if env.topic != "risk.fused":
             return []
         pl = dict(env.payload)
         lvl = pl["level"]
+        if self.rt is not None and self.offline and lvl >= 2:
+            pl["verifier"] = {"mode": "llm", "decision": "FALLBACK", "verifier": "fallback_offline", "level_in": lvl, "level_out": lvl}
+            return [self._out(env, pl)]
         # L2+ candidates, plus p ≥ t3 at L2 (possible LLM corroboration)
         if self.rt is None or lvl < 2:
             pl["verifier"] = {"mode": self.mode, "decision": "PASS", "level_in": lvl, "level_out": lvl}

@@ -14,11 +14,12 @@ from rockwatch.eval.metrics import metrics
 from rockwatch.fusion.thresholds import grid, sweep
 
 
-def tune_threshold(fr_val: Frame, score: np.ndarray, n: int) -> float:
-    """argmax val F1_at over score quantiles."""
+def tune_threshold(fr_val: Frame, score: np.ndarray, n: int, rule: str = "f1_episode") -> float:
+    """argmax val F1 (same rule as RockWatch's t2) over score quantiles."""
+    key = {"f1_episode": "f1_at", "f1_day": "f1_day"}[rule]
     ts = grid(score[fr_val.in_period], n)
     sw = sweep(fr_val, score, ts)
-    f1s = np.array([m["f1_at"] if m["f1_at"] is not None else -1 for m in sw])
+    f1s = np.array([m[key] if m[key] is not None else -1 for m in sw])
     return float(ts[int(f1s.argmax())])
 
 

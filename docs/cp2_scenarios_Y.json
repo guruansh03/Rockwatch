@@ -1,0 +1,20 @@
+{
+ "storm": {
+  "start": "2010-11-19",
+  "days": 45,
+  "why": "wettest 45-day window of region-mean precipitation in test period (13.3 mm/day)",
+  "region": "Y"
+ },
+ "quiet": {
+  "start": "2010-05-29",
+  "days": 45,
+  "why": "driest 45-day window (0.08 mm/day)",
+  "region": "Y"
+ },
+ "earthquake": {
+  "start": "2011-08-14",
+  "days": 45,
+  "why": "largest quake \u2264100 km of a zone in test period: M4.23 on 2011-08-24",
+  "region": "Y"
+ }
+}

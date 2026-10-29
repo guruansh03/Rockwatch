@@ -157,12 +157,13 @@ def evaluate(cfg: dict[str, Any], region: str, split: str, retrain: bool = False
     n = cfg["thresholds"]["n_grid"]
     base: dict[str, Any] = {}
     s1 = P["P1"].fillna(0).to_numpy()
-    q = tune_threshold(fr_val, s1, n)
+    rule = cfg["thresholds"].get("t2_rule", "f1_episode")
+    q = tune_threshold(fr_val, s1, n, rule)
     base["B1_P1_threshold"] = {"q_mm": q, **_eval_levels(fr, (s1 >= q).astype(np.int8) * 2, cfg)[0]}
     s2 = P["seattle_ct_margin_in"].to_numpy()
     base["B2_seattle_ct_designed_for_seattle"] = _eval_levels(fr, (np.nan_to_num(s2, nan=-9) > 0).astype(np.int8) * 2, cfg)[0]
     s3 = climatology_score(P, cfg["eval"]["clim_smoothing_k"])
-    t3c = tune_threshold(fr_val, s3, n)
+    t3c = tune_threshold(fr_val, s3, n, rule)
     base["B3_seasonal_climatology"] = {"t": t3c, **_eval_levels(fr, (s3 >= t3c).astype(np.int8) * 2, cfg)[0]}
     base["B4_random_matched_rate"] = random_alerts(fr, m["alert_day_fraction"] or 0.0, cfg["eval"]["random_baseline_draws"], cfg["fusion"]["seed"])
     # ---- ablations (B5 = rain)

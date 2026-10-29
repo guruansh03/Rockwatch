@@ -13,7 +13,7 @@ from rockwatch.schemas import TRUTH_TOPIC, Envelope
 
 PKG = Path(__file__).resolve().parent.parent / "rockwatch"
 # Files allowed to mention the truth topic: definition, access control, publisher, the evaluator, the dashboard overlay.
-TOPIC_ALLOWED = {"schemas.py", "bus/base.py", "replay/engine.py", "agents/evaluator.py", "dashboard/app.py"}
+TOPIC_ALLOWED = {"schemas.py", "bus/base.py", "replay/engine.py", "agents/evaluator.py", "dashboard/app.py", "dashboard/data.py"}
 # Files allowed to open ground-truth event tables (offline data/eval code + truth publisher; never live agents).
 EVENTS_FILE_ALLOWED = {"data/build.py", "eval/runner.py", "replay/engine.py"}
 

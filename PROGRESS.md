@@ -51,5 +51,22 @@
 ### Pending
 - Real-provider smoke run: put ANTHROPIC_API_KEY in `.env` (or run Ollama natively) → `python -m rockwatch llm-smoke --provider anthropic`.
 
+## Phase 5 — dashboard — DONE
+- `dashboard/app.py` (+ `dashboard/data.py`): Map (pydeck levels + closed-day truth overlay), Zone detail (P1/P3/P15 vs Seattle line,
+  contribution bars, p timeline with t1–t3), Alerts (composed message, verifier decision/rationale, Ack), Agents (heartbeats, stale, LLM log),
+  Evaluation (reports + live), Ask Analyst; sidebar faults (kill/restart RainSensor, LLM offline, drop zone); footer citations/disclaimer.
+- `run-demo` (non-headless) spawns the dashboard (http://localhost:8501). Manual runs recorded 2026-10-29: dev_val 25 d with `--llm on`
+  (dashboard health ok after 14 s, 63 composed messages); dev_val_Y 30 d (`--llm on`, 34 LLM calls, 4 messages); dev_val 60 d kill test (P3).
+- Tests: 63 passing incl. `test_dashboard.py` (AppTest render + helpers).
+
+## Phase 6 — final evaluation — PREPARED, STOPPED AT CP2
+- Region Y weather complete → built, trained, val report possible. Region A: 26/70 zones (Open-Meteo daily quota; resumes 00:05 UTC).
+- `rockwatch cp2-packet` → `docs/cp2_packet_A.md`, `docs/cp2_packet_Y.md`: val metrics under both t2 rules + proposed test scenarios.
+- Final run NOT executed (CP2 requires human approval).
+
+## Phase 7 — polish — DONE except numbers
+- README (setup per OS, pipeline, mermaid, limitations, mine path), docs/architecture.md, evaluation.md, demo_script.md, llm_guardrails.md.
+- README results section waits for the final test run (numbers will be copied verbatim).
+
 ## Deviations
 - DECISIONS.md D-001..D-019.

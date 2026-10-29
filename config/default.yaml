@@ -111,6 +111,7 @@ fusion:
   dynamic_modalities: [rain, thermal, seismic]
 
 thresholds:
+  t2_rule: f1_episode       # L2 rule: f1_episode (spec §8: F1 with episode precision) | f1_day (day-level precision). Decide at CP2.
   t1_recall: 0.9            # L1: largest t with val recall_at >= 0.9
   t3_min_recall: 0.2        # L3: max precision with recall >= 0.2 AND corroboration
   n_grid: 200
@@ -142,6 +143,10 @@ scenarios:
   dev_val:                   # development scenario (VALIDATION period; test scenarios chosen at CP2)
     region: A
     start: "2017-08-20"
+    days: 60
+  dev_val_Y:                 # Yosemite single-zone track, validation period
+    region: Y
+    start: "2009-03-01"
     days: 60
 # (llm) live demo budget: at most this many verifier calls per sim-day (highest-p first is not guaranteed; arrival order)
 llm_live:

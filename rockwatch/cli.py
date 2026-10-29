@@ -174,10 +174,9 @@ def cmd_run_demo(cfg: dict, args: argparse.Namespace) -> int:
         print(f"memory bus (in-process, deterministic): {len(bus.log)} messages over {region} {start}→{end}")
         return 0
     from rockwatch.replay.launcher import launch
-    if not args.headless:
-        print("dashboard arrives in Phase 5 — running headless")
     kill = (args.kill_agent, args.kill_at_day) if args.kill_agent else None
-    s = launch(cfg, args.scenario, args.speed, args.days, kill, set(args.auto_restart or []), llm=args.llm)
+    s = launch(cfg, args.scenario, args.speed, args.days, kill, set(args.auto_restart or []), llm=args.llm,
+               dashboard=not args.headless, port=args.port, keep_open=not args.no_wait)
     print(json.dumps({k: s[k] for k in ("sim_days", "days_with_daily_state", "fused_msgs", "active_level_zone_days",
                                          "supervisor_flags", "degraded_fused_days", "eval_live_last", "offline_eval", "llm", "run_dir")},
                      indent=1, default=str))
@@ -287,6 +286,13 @@ def cmd_llm_smoke(cfg: dict, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_cp2_packet(cfg: dict, args: argparse.Namespace) -> int:
+    """Prepare the CP2 decision packet (val only; scenarios from weather/quakes)."""
+    from rockwatch.eval.cp2 import packet
+    print(packet(cfg, args.region))
+    return 0
+
+
 def _not_yet(phase: str):
     def f(cfg: dict, args: argparse.Namespace) -> int:
         print(f"not implemented yet ({phase})", file=sys.stderr)
@@ -338,6 +344,8 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--auto-restart", nargs="*", default=None, help="agent_ids the supervisor may restart")
     d.set_defaults(func=cmd_run_demo)
     d.add_argument("--llm", choices=["on", "off"], default="off")
+    d.add_argument("--port", type=int, default=8501)
+    d.add_argument("--no-wait", action="store_true", help="close the dashboard when the replay ends")
     q = sp.add_parser("ask")
     q.add_argument("question")
     q.add_argument("--run", default=None)
@@ -348,6 +356,9 @@ def build_parser() -> argparse.ArgumentParser:
     sm.add_argument("--n", type=int, default=3)
     sm.add_argument("--provider", default=None, help="anthropic|ollama|mock (default: env ROCKWATCH_LLM_PROVIDER)")
     sm.set_defaults(func=cmd_llm_smoke)
+    cp = sp.add_parser("cp2-packet")
+    cp.add_argument("--region", default="A")
+    cp.set_defaults(func=cmd_cp2_packet)
     a = sp.add_parser("agents")
     a.add_argument("action", choices=["status", "kill"])
     a.add_argument("target", nargs="?", default=None)

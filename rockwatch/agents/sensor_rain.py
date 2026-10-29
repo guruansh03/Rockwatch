@@ -33,6 +33,12 @@ class RainSensorAgent(Agent):
         super().__init__(ctx, agent_id or f"{self.name}_{group}", **kw)
         zs = list(ctx.zones["zone_id"])
         self.my_zones = zs[group::n_groups]
+        self.dropped: set[str] = set()
+
+    def on_control(self, env):
+        if env.kind == "drop_zone":
+            z = env.payload.get("zone_id")
+            (self.dropped.add if env.payload.get("on", True) else self.dropped.discard)(z)
 
     def handle(self, env):
         if env.topic != "sim.clock" or env.kind != "tick":
@@ -40,4 +46,4 @@ class RainSensorAgent(Agent):
         import pandas as pd
         d = pd.Timestamp(env.sim_date)
         return [self.msg(self.topic_out, env.sim_date, pl, zone_id=z, quality=q, kind="reading")
-                for z, pl, q in readings(self.ctx.weather, self.my_zones, d, self.fields)]
+                for z, pl, q in readings(self.ctx.weather, self.my_zones, d, self.fields) if z not in self.dropped]

@@ -35,7 +35,8 @@ def choose(fr: Frame, p: np.ndarray, n_dyn_pos: np.ndarray, cfg: dict[str, Any])
     tc = cfg["thresholds"]
     ts = grid(p[fr.in_period], tc["n_grid"])
     sw = sweep(fr, p, ts)
-    f1s = np.array([m["f1_at"] if m["f1_at"] is not None else -1 for m in sw])
+    key = {"f1_episode": "f1_at", "f1_day": "f1_day"}[tc.get("t2_rule", "f1_episode")]
+    f1s = np.array([m[key] if m[key] is not None else -1 for m in sw])
     t2 = float(ts[int(f1s.argmax())])
     rec = np.array([m["recall_at"] or 0 for m in sw])
     ok1 = ts[rec >= tc["t1_recall"]]
@@ -50,8 +51,8 @@ def choose(fr: Frame, p: np.ndarray, n_dyn_pos: np.ndarray, cfg: dict[str, Any])
     else:
         t3, l3 = None, False
     return {"t1": t1, "t2": t2, "t3": t3, "l3_enabled": l3, "rule_t1": f"max t: val recall_at>={tc['t1_recall']}",
-            "rule_t2": "argmax val F1_at", "rule_t3": f"max L3 precision s.t. recall_at>={tc['t3_min_recall']} & corroboration",
-            "sweep": [{k: m[k] for k in ("t", "recall_at", "recall_before", "precision_episode", "precision_day", "f1_at", "alert_day_fraction")} for m in sw]}
+            "rule_t2": f"argmax val {key} (t2_rule={tc.get('t2_rule', 'f1_episode')})", "rule_t3": f"max L3 precision s.t. recall_at>={tc['t3_min_recall']} & corroboration",
+            "sweep": [{k: m[k] for k in ("t", "recall_at", "recall_before", "precision_episode", "precision_day", "f1_at", "f1_day", "alert_day_fraction")} for m in sw]}
 
 
 def raw_levels(p: np.ndarray, n_dyn_pos: np.ndarray, th: dict[str, Any], min_dyn: int = 2,

@@ -39,12 +39,18 @@ class ComposerAgent(Agent):
         super().__init__(ctx, agent_id, **kw)
         self.rt = LLMRuntime(ctx.cfg, "writer") if ctx.params.get("llm", "off") == "on" else None
 
+    offline = False
+
+    def on_control(self, env):
+        if env.kind == "llm_offline":
+            self.offline = bool(env.payload.get("on", True))
+
     def handle(self, env):
         if env.topic != "alerts.active" or env.kind != "escalate" or env.payload.get("to", 0) < 2 or env.payload.get("p") is None:
             return []
         pl = env.payload
         a = alert_view(env.zone_id, env.sim_date, pl["to"], pl["p"], pl.get("contributions", {}), pl.get("episode_id"))
-        msg, rec = compose(self.rt, a)
+        msg, rec = compose(None if self.offline else self.rt, a)
         out = [self.msg("alerts.active", env.sim_date, {**msg, "alert": a}, zone_id=env.zone_id, kind="message", evidence_ids=[env.msg_id])]
         if rec:
             out.append(self.msg("llm.calls", env.sim_date, {**rec, "zone_id": env.zone_id}, zone_id=env.zone_id, kind="composer"))
