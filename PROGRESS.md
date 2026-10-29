@@ -1,21 +1,19 @@
 # PROGRESS
 
-## Phase 0 — scaffold + data + profiling (Day 1) — DONE, waiting CP1
+## Phase 0 — DONE. CP1 passed 2026-10-29 (D-013).
 
+## Phase 1 — ingestion + features + labels + splits — IN PROGRESS
 ### Done
-- Repo scaffold (§5), `pyproject.toml` (`rockwatch` entry point), requirements, `.gitignore`, `.env.example`.
-- `config/default.yaml`: cleaning tables, profiling params, weather/quake/llm stubs.
-- `data/usgs_inventory.py`: fetch (ScienceBase), point+poly CSV load, cleaning §6.1.
-- `data/profiling.py`: counts, positive zone-days, sliding-bbox ranking (no-EQ), coverage-aware chronological splits w/ 30-d gaps.
-- `data/yosemite.py`: DS746 fetch + parse.
-- CLI: `fetch-inventory`, `profile` working; rest stubbed.
-- Data: USGS v3 zip + DS746 xlsx in `data/raw/` (user-downloaded). `docs/data_profile.md` generated from real data.
-- Tests: 15 passing.
-
+- `data/zones.py` (grid, leakage-safe selection), `data/weather.py` (Open-Meteo, cached, budgeted, 429-aware),
+  `data/quakes.py` (ComCat by year, cached), `data/labels.py`, `data/splits.py`, `data/build.py`.
+- `features/{rainfall,thermal,seismic,susceptibility,context}.py` per §7.
+- CLI: `build-zones`, `fetch-weather`, `build-data [--allow-partial]`; data card writer.
+- Quakes cached: A 4,561 (max M7.1, incl. 2018-11-30 Anchorage), Y 9,595.
+- Tests: 24 passing incl. `test_splits_no_leakage.py` (split gaps, zone/prior selection, feature causality, train-only climatology).
 ### Pending
-- **CP1**: confirm region, C_min, type mapping, split dates, Yosemite track.
-- CLAUDE.md copy into repo root (not present yet).
-- Python on dev VM is 3.10 (pyproject says ≥3.11); code kept 3.10-compatible.
+- Weather: 14/70 A zones cached; 56 A zones + 4 Yosemite chunks remaining (quota-bound, ~1.5–2 days).
+- Full `build-data` + final data card once weather complete.
+- CLAUDE.md copy into repo root.
 
-### Deviations
-- See DECISIONS.md D-001..D-012.
+## Deviations
+- DECISIONS.md D-001..D-019.
