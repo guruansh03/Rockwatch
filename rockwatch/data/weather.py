@@ -96,10 +96,11 @@ def fetch_chunk(base_url: str, req: ZoneRequest, a: str, b: str, daily: list[str
     return d, meta
 
 
-def pending_chunks(cdir: Path, reqs: list[ZoneRequest], years: int) -> list[tuple[ZoneRequest, str, str]]:
-    """(request, a, b) still missing from cache, in request order."""
+def pending_chunks(cache_root: Path, reqs: list[ZoneRequest], years: int) -> list[tuple[ZoneRequest, str, str]]:
+    """(request, a, b) still missing from cache, in request order (each request's own region dir)."""
     out = []
     for q in reqs:
+        cdir = cache_dir(cache_root, q.region)
         for a, b in chunks(q.start, q.end, years):
             if not chunk_path(cdir, q.zone_id, a, b).exists():
                 out.append((q, a, b))
@@ -110,12 +111,12 @@ def run_batch(reqs: list[ZoneRequest], cfg: dict[str, Any], cache_root: Path, bu
               max_requests: int | None = None) -> dict[str, Any]:
     """Fetch missing chunks until done, time budget spent, or quota hit. Resumable; paced via a stamp file."""
     w = cfg["weather"]
-    region = reqs[0].region if reqs else "?"
-    cdir = cache_dir(cache_root, region)
-    stamp = cdir.parent / "last_request.txt"
-    logf = cdir.parent / "fetch_log.jsonl"
+    wroot = cache_root / "weather"
+    wroot.mkdir(parents=True, exist_ok=True)
+    stamp = wroot / "last_request.txt"
+    logf = wroot / "fetch_log.jsonl"
     t0 = time.monotonic()
-    todo = pending_chunks(cdir, reqs, w["chunk_years"])
+    todo = pending_chunks(cache_root, reqs, w["chunk_years"])
     done, stop, errors = 0, None, 0
     for q, a, b in todo:
         if max_requests is not None and done >= max_requests:
@@ -142,12 +143,12 @@ def run_batch(reqs: list[ZoneRequest], cfg: dict[str, Any], cache_root: Path, bu
                 stop = "errors"
                 break
             continue
-        p = chunk_path(cdir, q.zone_id, a, b)
+        p = chunk_path(cache_dir(cache_root, q.region), q.zone_id, a, b)
         d.to_parquet(p, index=False)
         p.with_suffix(".json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
-        _log(logf, dict(zone=q.zone_id, a=a, b=b, status="ok", days=len(d), secs=round(time.time() - ts, 2)))
+        _log(logf, dict(region=q.region, zone=q.zone_id, a=a, b=b, status="ok", days=len(d), secs=round(time.time() - ts, 2)))
         done += 1
-    left = len(pending_chunks(cdir, reqs, w["chunk_years"]))
+    left = len(pending_chunks(cache_root, reqs, w["chunk_years"]))
     return {"fetched": done, "remaining": left, "stopped": stop or "complete", "elapsed_s": round(time.monotonic() - t0, 1)}
 
 

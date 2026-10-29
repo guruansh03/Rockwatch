@@ -96,3 +96,13 @@ def test_rain_windows():
     assert np.isclose(f.loc[d, "P3"], p[d - 2:d + 1].sum())
     assert np.isclose(f.loc[d, "P15"], p[d - 17:d - 2].sum())
     assert np.isclose(f.loc[d, "P30"], p[d - 29:d + 1].sum())
+
+
+def test_weather_pending_per_region(tmp_path):
+    from rockwatch.data.weather import ZoneRequest, cache_dir, chunk_path, chunks, pending_chunks
+    qa = ZoneRequest("A", "r0c0", 60.0, -149.0, "2010-01-01", "2010-12-31")
+    qy = ZoneRequest("Y", "yose", 37.7, -119.6, "2010-01-01", "2010-12-31")
+    a, b = chunks(qa.start, qa.end, 17)[0]
+    chunk_path(cache_dir(tmp_path, "A"), "r0c0", a, b).write_text("x")
+    todo = pending_chunks(tmp_path, [qy, qa], 17)
+    assert [(q.region, q.zone_id) for q, _, _ in todo] == [("Y", "yose")]
