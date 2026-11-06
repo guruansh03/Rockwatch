@@ -1,6 +1,6 @@
 # CP2 decision packet — region Y
 
-Generated 2026-10-29 18:52. **No test-split labels were read to produce this page.**
+Generated 2026-10-30 17:13. **No test-split labels were read to produce this page.**
 
 Data coverage: 1/1 zones with weather
 

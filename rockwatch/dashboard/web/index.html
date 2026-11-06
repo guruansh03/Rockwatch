@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RockWatch · Control Room</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2316181B'/%3E%3Cpath d='M6 24 L13 10 L18 18 L21 14 L26 24 Z' fill='%23E06C1F'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6"/><path d="M6 24 L13 10 L18 18 L21 14 L26 24 Z"/></svg>
+      <div class="brand-text"><span class="brand-name">RockWatch</span><span class="brand-sub">FuseGuard · control room</span></div>
+    </div>
+    <div class="run-picker">
+      <label for="runSelect" class="eyebrow">Run</label>
+      <select id="runSelect" aria-label="Replay run"></select>
+    </div>
+    <div class="clock">
+      <span class="eyebrow" id="regionName">—</span>
+      <span class="clock-date mono" id="simDate">—</span>
+      <span class="clock-sub mono" id="simIndex">day — / —</span>
+      <button class="view-chip" id="liveBtn" type="button" hidden title="Return to the latest day (Esc)"><span class="vc-dot"></span><span id="viewLabel">viewing</span><span class="vc-back">back to latest</span></button>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-icon" id="playBtn" title="Pause / resume replay (Space)" aria-label="Pause or resume replay">
+        <svg viewBox="0 0 24 24" class="ico-pause"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        <svg viewBox="0 0 24 24" class="ico-play"><path d="M7 5 L19 12 L7 19 Z"/></svg>
+      </button>
+      <span class="status-pill" id="statusPill"><span class="dot"></span><span class="label">connecting</span></span>
+      <span class="llm-pill" id="llmPill" data-k="off" title="LLM provider used by the verifier / composer agents">LLM <b>—</b></span>
+      <button class="btn btn-icon" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" role="status" aria-live="polite"></div>
+
+  <section class="kpis" aria-label="Key indicators">
+    <div class="kpi"><span class="eyebrow">Zones at L2+</span><span class="kpi-value mono" data-kpi="n_l2">0</span><span class="kpi-foot" id="kpiZones">of —</span></div>
+    <div class="kpi kpi-l3"><span class="eyebrow">L3 Alarm</span><span class="kpi-value mono" data-kpi="n_l3">0</span><span class="kpi-foot">corroborated</span></div>
+    <div class="kpi"><span class="eyebrow">Unacknowledged</span><span class="kpi-value mono" data-kpi="unacked">0</span><span class="kpi-foot">re-notify after 2 days</span></div>
+    <div class="kpi"><span class="eyebrow">Degraded risks</span><span class="kpi-value mono" data-kpi="degraded">0</span><span class="kpi-foot" id="kpiStale">all agents healthy</span></div>
+    <div class="kpi" title="Share of reported event-days in this replay with an L2+ alert active on that day or the day before. A short window: illustrative, not the evaluation metric."><span class="eyebrow">Replay recall · at</span><span class="kpi-value mono" data-kpi="recall" data-format="pct">—</span><span class="kpi-foot" id="kpiRecall">illustrative only</span><span class="kpi-foot kpi-foot-2" id="kpiRecall2"></span></div>
+    <div class="kpi"><span class="eyebrow">LLM calls</span><span class="kpi-value mono" data-kpi="llm_calls">0</span><span class="kpi-foot" id="kpiLlm">verifier · composer</span></div>
+  </section>
+
+  <section class="replay" aria-label="Replay track">
+    <div class="replay-meta">
+      <span class="eyebrow">Replay</span>
+      <span class="hint" id="trackHint">click or drag to inspect a closed day · ← → step · Esc latest</span>
+    </div>
+    <div class="replay-row">
+      <span class="mono track-end" id="trackStart">—</span>
+      <div id="track" class="rtrack"></div>
+      <span class="mono track-end" id="trackEnd">—</span>
+      <div class="seg speed" id="speedSeg" role="group" aria-label="Replay speed">
+        <button type="button" data-mult="0.5" title="Half speed">0.5×</button><button type="button" data-mult="1" class="is-on">1×</button><button type="button" data-mult="2" title="Double speed (min 0.75 s/day)">2×</button>
+      </div>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button role="tab" data-tab="overview" aria-selected="true">Overview <kbd>1</kbd></button>
+    <button role="tab" data-tab="zone">Zone detail <kbd>2</kbd></button>
+    <button role="tab" data-tab="alerts">Alerts <span class="count" id="alertCount"></span> <kbd>3</kbd></button>
+    <button role="tab" data-tab="agents">Agents <kbd>4</kbd></button>
+    <button role="tab" data-tab="eval">Evaluation <kbd>5</kbd></button>
+    <button role="tab" data-tab="analyst">Analyst <kbd>6</kbd></button>
+    <span class="tab-ink" id="tabInk"></span>
+  </nav>
+
+  <main>
+    <!-- OVERVIEW -->
+    <section class="view is-active" id="view-overview" role="tabpanel">
+      <div class="grid-overview">
+        <div class="card map-card">
+          <div class="card-head">
+            <div><h2>Zone risk map</h2><p class="sub" id="mapSub">0.25° zones · level after hysteresis</p></div>
+            <div class="seg seg-sm" id="baseSeg" role="group" aria-label="Basemap"><button type="button" data-base="terrain">Terrain</button><button type="button" data-base="streets">Streets</button><button type="button" data-base="off">Off</button></div>
+          </div>
+          <div class="legend legend-row">
+              <span><i class="sw l0"></i>L0 Normal</span><span><i class="sw l1"></i>L1 Watch</span>
+              <span><i class="sw l2"></i>L2 Warning</span><span><i class="sw l3"></i>L3 Alarm</span>
+              <span><i class="sw truth"></i>Reported event</span>
+              <label class="switch"><input type="checkbox" id="truthToggle" checked><span class="track"></span><span>Show events</span></label>
+          </div>
+          <div id="map" class="map"></div>
+          <p class="map-note">Reported events (◆) appear only after their day has closed — the agents never see them.</p>
+        </div>
+        <div class="col-right">
+          <div class="card">
+            <div class="card-head"><div><h2>Level timeline</h2><p class="sub" id="timelineSub">zones per level, each sim-day</p></div></div>
+            <div id="timeline" class="chart chart-timeline"></div>
+          </div>
+          <div class="card card-scroll">
+            <div class="card-head"><div><h2>Latest alerts</h2><p class="sub">escalations and re-notifications</p></div>
+              <button class="btn btn-ghost" data-goto="alerts">All alerts →</button></div>
+            <ol id="miniFeed" class="mini-feed"></ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ZONE -->
+    <section class="view" id="view-zone" role="tabpanel">
+      <div class="zone-head card">
+        <div class="zone-pick">
+          <label class="eyebrow" for="zoneSelect">Zone</label>
+          <select id="zoneSelect"></select>
+          <span class="hint">or click a cell on the map</span>
+        </div>
+        <div class="zone-badges">
+          <span class="level-chip" id="zoneLevel">L0</span>
+          <div class="stat"><span class="eyebrow">Probability</span><span class="mono stat-v" id="zoneP">—</span></div>
+          <div class="stat"><span class="eyebrow">Prior features</span><span class="mono stat-v" id="zonePrior">—</span></div>
+          <div class="stat"><span class="eyebrow">Data quality</span><span class="stat-v" id="zoneQuality">—</span></div>
+        </div>
+      </div>
+      <div class="grid-zone">
+        <div class="card span-2">
+          <div class="card-head"><div><h2>Rainfall</h2><p class="sub">P1 daily bars · P3 line · dashed: P3 the USGS Seattle threshold would need (designed for Seattle)</p></div></div>
+          <div id="rainChart" class="chart chart-tall"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h2>Why this level</h2><p class="sub" id="contribSub">per-modality contribution, log-odds</p></div></div>
+          <div id="contribChart" class="chart"></div>
+          <div id="verifierNote" class="verifier-note"></div>
+        </div>
+        <div class="card span-2">
+          <div class="card-head"><div><h2>Calibrated probability</h2><p class="sub">daily p with thresholds t1 · t2 · t3 (chosen on validation)</p></div></div>
+          <div id="pChart" class="chart"></div>
+          <p class="note" id="thNote" hidden></p>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h2>Evidence</h2><p class="sub">feature values behind each contribution</p></div></div>
+          <div id="evidenceTable" class="evidence"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALERTS -->
+    <section class="view" id="view-alerts" role="tabpanel">
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Filter alerts">
+          <button class="is-on" data-filter="all">All</button><button data-filter="unacked">Unacknowledged</button><button data-filter="escalate">Escalations</button>
+        </div>
+        <label class="switch"><input type="checkbox" id="groupToggle" checked><span class="track"></span><span>Group watch changes &amp; re-notifications</span></label>
+        <span class="hint">L2 restrict access below slopes · L3 close or evacuate zone · acknowledgement stops re-notification</span>
+      </div>
+      <ol id="feed" class="feed"></ol>
+    </section>
+
+    <!-- AGENTS -->
+    <section class="view" id="view-agents" role="tabpanel">
+      <div class="grid-agents">
+        <div class="card span-2">
+          <div class="card-head"><div><h2>Agent processes</h2><p class="sub">one OS process each · heartbeat every 2 s · supervisor flags stale after 6 s</p></div></div>
+          <div id="agentGrid" class="agent-grid"></div>
+        </div>
+        <div class="card faults">
+          <div class="card-head"><div><h2>Fault injection</h2><p class="sub" id="faultSub">demonstrate degraded operation</p></div></div>
+          <div class="fault">
+            <div><strong>Rain sensor (group 0)</strong><p class="sub">Kill the process; supervisor marks it stale and fusion runs degraded.</p></div>
+            <div class="fault-actions"><button class="btn btn-danger" id="killBtn">Kill</button><button class="btn" id="restartBtn">Restart</button></div>
+          </div>
+          <div class="fault">
+            <div><strong>LLM offline</strong><p class="sub">Verifier falls back to the deterministic level; messages use the template.</p></div>
+            <label class="switch"><input type="checkbox" id="llmOffline"><span class="track"></span></label>
+          </div>
+          <div class="fault">
+            <div><strong>Drop a zone's sensor data</strong><p class="sub">Quality agent flags it missing; evidence weight goes to zero.</p></div>
+            <select id="dropZone"><option value="">none</option></select>
+          </div>
+        </div>
+        <div class="card span-3">
+          <div class="card-head"><div><h2>LLM call log</h2><p class="sub">every call is cached, guardrail-checked and logged</p></div></div>
+          <div class="table-wrap llm-wrap"><table class="table" id="llmTable"><thead><tr><th>Day</th><th>Zone</th><th>Task</th><th>Model</th><th>Outcome</th><th>Cached</th><th class="num">Tokens in/out</th><th class="num">Latency</th><th>Violations</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EVALUATION -->
+    <section class="view" id="view-eval" role="tabpanel">
+      <div class="toolbar">
+        <label class="eyebrow" for="reportSelect">Report</label><select id="reportSelect"></select>
+        <span class="hint" id="reportHint"></span>
+      </div>
+      <div id="reportWarn" class="warn"></div>
+      <div class="grid-eval">
+        <div class="card span-2">
+          <div class="card-head"><div><h2>RockWatch vs baselines</h2><p class="sub">L2+ alerts · bars show 95% block-bootstrap interval where available</p></div>
+            <div class="seg" role="group" aria-label="Metric"><button class="is-on" data-metric="recall_at">Recall (at)</button><button data-metric="recall_before">Recall (before)</button><button data-metric="precision_day">Precision (day)</button><button data-metric="precision_episode">Precision (episode)</button><button data-metric="alert_day_fraction">Alert-day fraction</button></div></div>
+          <div id="baselineChart" class="chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h2>Thresholds</h2><p class="sub">validation-only rules</p></div></div>
+          <dl id="thresholdList" class="dl"></dl>
+        </div>
+        <div class="card span-3">
+          <div class="card-head"><div><h2>Ablations</h2><p class="sub">each row refit and re-thresholded on validation</p></div></div>
+          <div class="table-wrap"><table class="table" id="ablationTable"></table></div>
+        </div>
+        <div class="card span-3">
+          <div class="card-head"><div><h2>Recall by subset</h2><p class="sub">type family · confidence · earthquake inventories · season</p></div></div>
+          <div class="table-wrap"><table class="table" id="breakdownTable"></table></div>
+        </div>
+        <div class="card span-3 figures" id="figures"></div>
+      </div>
+    </section>
+
+    <!-- ANALYST -->
+    <section class="view" id="view-analyst" role="tabpanel">
+      <div class="analyst card">
+        <div class="card-head"><div><h2>Ask the analyst</h2><p class="sub">answers only from this run's logged records, with record ids · refuses time-of-failure and field-performance questions</p></div>
+          <label class="switch"><input type="checkbox" id="askLlm"><span class="track"></span><span>Use LLM</span></label></div>
+        <ol id="chat" class="chat"></ol>
+        <div class="suggest" id="suggest"></div>
+        <form id="askForm" class="ask">
+          <input id="askInput" autocomplete="off" placeholder="e.g. Which alerts were raised in r9c8?" maxlength="500" aria-label="Question">
+          <button class="btn btn-primary" type="submit">Ask</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p><strong id="footBanner">US natural-slope / road-cut data — not mine performance. Precision is a lower bound (unreported events). Lead time in days; no time-of-failure prediction.</strong></p>
+    <p>Data: USGS <em>Landslide Inventories across the United States</em> v3.0 (DOI 10.5066/P14AJF8I, CC0) · USGS DS746 Yosemite rock falls · USGS ComCat · Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0) · <span id="basemapCredit">Basemap © OpenStreetMap contributors</span></p>
+  </footer>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="/static/vendor/leaflet/leaflet.js"></script>
+  <script src="/static/charts.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

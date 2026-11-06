@@ -106,37 +106,69 @@ def write_report(res: dict[str, Any], cfg: dict[str, Any], git: str, llm_usage: 
     return out
 
 
+PALETTE = {"full": "#16181B", "rain": "#1F5FAD", "B1_P1": "#8A8F96", "B3_climatology": "#4E8E69"}
+INK, MUTED, RULE, ACCENT = "#16181B", "#7C8188", "#E2E0DA", "#DD6A1E"
+
+
+def _style(ax) -> None:
+    """Match the control-room UI: thin rules, no top/right spines, muted ticks."""
+    for k in ("top", "right"):
+        ax.spines[k].set_visible(False)
+    for k in ("left", "bottom"):
+        ax.spines[k].set_color(RULE)
+    ax.tick_params(colors=MUTED, labelsize=8, length=3)
+    ax.grid(color=RULE, linewidth=0.8, linestyle=(0, (2, 3)))
+    ax.set_axisbelow(True)
+    ax.xaxis.label.set_color(INK)
+    ax.yaxis.label.set_color(INK)
+    ax.title.set_color(INK)
+
+
 def _plots(res: dict[str, Any], out: Path) -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(6, 4.5))
+    plt.rcParams.update({"font.family": ["IBM Plex Sans", "DejaVu Sans"], "font.size": 9, "axes.titlesize": 10, "axes.titleweight": "semibold",
+                         "axes.titlelocation": "left", "axes.labelsize": 9, "legend.frameon": False})
+    fig, ax = plt.subplots(figsize=(6.2, 4.4))
     for name, pts in res["pr_curves"].items():
         pts = [(r, p) for r, p in pts if r is not None and p is not None]
         if pts:
             r, p = zip(*sorted(pts))
-            ax.plot(r, p, label=name, lw=1.8 if name == "full" else 1.2)
+            ax.plot(r, p, label=name, lw=2.0 if name == "full" else 1.2, color=PALETTE.get(name, MUTED), zorder=3 if name == "full" else 2)
     rw = res["rockwatch"]
     if rw["recall_at"] is not None and rw["precision_episode"] is not None:
-        ax.scatter([rw["recall_at"]], [rw["precision_episode"]], c="k", zorder=5, label="RockWatch @ t2")
+        ax.scatter([rw["recall_at"]], [rw["precision_episode"]], s=42, color=ACCENT, edgecolor="white", linewidth=1.2, zorder=5, label="RockWatch @ t2")
+    ax.set_xlim(0, 1.02)
+    ax.set_ylim(0, 1.02)
     ax.set_xlabel("event-day recall (TP_at)")
     ax.set_ylabel("episode precision (lower bound)")
-    ax.set_title(f"PR sweep — region {res['region']}, {res['split']}")
-    ax.grid(alpha=0.3)
-    ax.legend(fontsize=8)
-    fig.text(0.01, 0.01, res["banner"], fontsize=6)
-    fig.tight_layout(rect=(0, 0.03, 1, 1))
-    fig.savefig(out / "pr_curve.png", dpi=130)
+    ax.set_title(f"Precision–recall sweep · region {res['region']} · {res['split']}", pad=34)
+    _style(ax)
+    ax.legend(fontsize=7.5, loc="lower center", ncol=3, bbox_to_anchor=(0.5, 1.0), borderaxespad=1.6)
+    fig.text(0.01, 0.012, res["banner"], fontsize=6.5, color=MUTED)
+    fig.tight_layout(rect=(0, 0.035, 1, 1))
+    fig.savefig(out / "pr_curve.png", dpi=150)
     plt.close(fig)
     ld = np.asarray(res.get("lead_days_tp_at") or [])
-    fig, ax = plt.subplots(figsize=(5, 3.5))
+    cap = 30
+    fig, ax = plt.subplots(figsize=(6.2, 3.6))
     if len(ld):
-        ax.hist(ld, bins=np.arange(-0.5, max(ld.max(), 5) + 1.5, 1))
-    ax.set_xlabel("lead (days) = event day − episode start")
+        clipped = np.minimum(ld, cap)
+        counts = np.bincount(clipped.astype(int), minlength=cap + 1)
+        colors = [ACCENT if k == 0 else INK for k in range(cap + 1)]
+        colors[-1] = MUTED
+        ax.bar(np.arange(cap + 1), counts, width=0.78, color=colors)
+        ax.set_xticks([0, 1, 2, 3, 5, 7, 10, 14, 21, cap])
+        ax.set_xticklabels([str(t) if t < cap else f"{cap}+" for t in [0, 1, 2, 3, 5, 7, 10, 14, 21, cap]])
+        if (ld >= cap).any():
+            ax.text(cap, counts[-1], f"  {int((ld >= cap).sum())} in episodes ≥{cap} d", fontsize=7, color=MUTED, va="bottom", ha="right")
+    ax.set_xlabel("lead (days) = event day − start of the matched alert episode   (0 = same-day nowcast)")
     ax.set_ylabel("TP_at event-days")
     ax.set_title("Lead-days distribution (days, not hours)")
-    fig.text(0.01, 0.01, res["banner"], fontsize=6)
+    _style(ax)
+    fig.text(0.01, 0.012, res["banner"], fontsize=6.5, color=MUTED)
     fig.tight_layout(rect=(0, 0.04, 1, 1))
-    fig.savefig(out / "lead_days.png", dpi=130)
+    fig.savefig(out / "lead_days.png", dpi=150)
     plt.close(fig)

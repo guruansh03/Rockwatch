@@ -6,7 +6,8 @@ import pytest
 from rockwatch.config import repo_path
 
 st_testing = pytest.importorskip("streamlit.testing.v1")
-RUNS = sorted(p for p in repo_path("data/runs").glob("*") if (p / "bus.sqlite").exists())
+RUNS = sorted((p for p in repo_path("data/runs").glob("*") if (p / "bus.sqlite").exists() and (p / "run.json").exists()),
+              key=lambda p: (p / "run.json").stat().st_mtime)
 
 
 @pytest.mark.skipif(not RUNS, reason="no recorded run")

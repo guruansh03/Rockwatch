@@ -21,11 +21,14 @@ def prompt(name: str, **kw: Any) -> str:
 class LLMRuntime:
     """One per agent/eval run. `max_calls` caps NON-cached provider calls; beyond it callers fall back."""
 
-    def __init__(self, cfg: dict[str, Any], role: str, provider: Provider | None = None, max_calls: int | None = None):
+    def __init__(self, cfg: dict[str, Any], role: str, provider: Provider | None = None, max_calls: int | None = None,
+                 batch: bool = False):
         self.cfg = cfg
-        self.provider = provider or make_provider(cfg, role)
+        self.provider = provider or make_provider(cfg, role, batch=batch)
         self.cache = C.LLMCache(repo_path(cfg["paths"]["cache"]) / "llm")
-        self.max_calls = max_calls if max_calls is not None else cfg["llm"]["max_llm_calls"]
+        # provider-specific cap (e.g. Groq free tier) overrides the global one; the report records the cap used
+        pcap = (cfg["llm"].get(self.provider.name) or {}).get("max_llm_calls") if isinstance(cfg["llm"].get(self.provider.name), dict) else None
+        self.max_calls = max_calls if max_calls is not None else (pcap or cfg["llm"]["max_llm_calls"])
         self.calls = 0
         self.records: list[dict[str, Any]] = []
 

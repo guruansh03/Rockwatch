@@ -1,4 +1,4 @@
-"""LLM provider interface + factory (ROCKWATCH_LLM_PROVIDER = anthropic | ollama | mock)."""
+"""LLM provider interface + factory (ROCKWATCH_LLM_PROVIDER = anthropic | groq | ollama | mock)."""
 from __future__ import annotations
 
 import os
@@ -41,8 +41,8 @@ class Provider:
         raise NotImplementedError
 
 
-def make_provider(cfg: dict[str, Any], role: str = "verifier", name: str | None = None) -> Provider:
-    """role ∈ {verifier, writer}. Model IDs from env (§9.4)."""
+def make_provider(cfg: dict[str, Any], role: str = "verifier", name: str | None = None, batch: bool = False) -> Provider:
+    """role ∈ {verifier, writer}. Model IDs from env (§9.4). batch=True: offline eval/smoke (rate-limit pacing on)."""
     from dotenv import load_dotenv
 
     from rockwatch.config import repo_path
@@ -54,6 +54,12 @@ def make_provider(cfg: dict[str, Any], role: str = "verifier", name: str | None 
         model = os.getenv("ROCKWATCH_MODEL_VERIFIER" if role == "verifier" else "ROCKWATCH_MODEL_WRITER",
                           "claude-haiku-5-5" if role == "verifier" else "claude-sonnet-5-5")
         return AnthropicProvider(model, lc["timeout_s"], lc["max_tool_turns"])
+    if name == "groq":
+        from rockwatch.llm.groq_provider import GroqProvider
+        g = lc.get("groq", {})
+        model = os.getenv("GROQ_MODEL_VERIFIER" if role == "verifier" else "GROQ_MODEL_WRITER",
+                          g.get("verifier" if role == "verifier" else "writer", "openai/gpt-oss-20b"))
+        return GroqProvider(model, lc["timeout_s"], lc["max_tool_turns"], min_interval_s=g.get("min_interval_s_batch", 7.5) if batch else 0.0)
     if name == "ollama":
         from rockwatch.llm.ollama_provider import OllamaProvider
         return OllamaProvider(os.getenv("OLLAMA_MODEL", "qwen2.5:7b"), lc["timeout_s"], lc["max_tool_turns"],

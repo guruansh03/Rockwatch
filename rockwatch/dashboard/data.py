@@ -43,9 +43,14 @@ def truth_markers(bus, upto: str | None, days: int, zones: pd.DataFrame) -> pd.D
         return pd.DataFrame(columns=["zone_id", "date", "lat", "lon"])
     d0 = (pd.Timestamp(upto) - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
     ev = bus.read(R, ["truth.events"], kind="day_close", date_from=d0)
-    rows = [{"zone_id": x["zone_id"], "date": e.sim_date, "type": x.get("type_family")} for e in ev for x in e.payload["events"]]
+    rows = [{"zone_id": x["zone_id"], "date": e.sim_date, "type": x.get("type_family")} for e in ev if e.sim_date <= upto for x in e.payload["events"]]
     df = pd.DataFrame(rows, columns=["zone_id", "date", "type"])
     return df.merge(zones[["zone_id", "lat", "lon"]], on="zone_id", how="left")
+
+
+def truth_counts(bus) -> dict[str, int]:
+    """Reported events per CLOSED sim-day (overlay only; agents never read this)."""
+    return {e.sim_date: len(e.payload["events"]) for e in bus.read(R, ["truth.events"], kind="day_close")}
 
 
 def zone_series(bus, zone_id: str) -> pd.DataFrame:

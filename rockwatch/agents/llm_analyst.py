@@ -21,7 +21,7 @@ class AnalystStore:
 
     def query_alerts(self, zone: str | None = None, level_min: int = 2, date_from: str | None = None, limit: int = 20) -> list[dict]:
         ev = self.bus.read(READER, ["alerts.active"], zone_id=zone, date_from=date_from)
-        out = [{"id": str(e.seq), "date": e.sim_date, "zone_id": e.zone_id, "kind": e.kind, "to_level": e.payload.get("to"),
+        out = [{"id": str(e.seq), "date": e.sim_date, "zone_id": e.zone_id, "kind": e.kind, "to_level": e.payload.get("to", e.payload.get("level")),
                 "p": round(e.payload["p"], 4) if e.payload.get("p") is not None else None}
                for e in ev if e.kind in ("escalate", "deescalate", "renotify") and (e.payload.get("to") or e.payload.get("level") or 0) >= level_min]
         return out[-limit:]
@@ -54,10 +54,40 @@ class AnalystStore:
 def _prebundle(store: AnalystStore, q: str) -> list[dict]:
     zone = (re.findall(r"\br\d+c\d+\b", q) or [None])[0]
     dates = re.findall(r"\d{4}-\d{2}-\d{2}", q)
-    recs = store.query_alerts(zone=zone) + store.query_metrics()
-    if zone and dates:
-        recs += store.explain_zone(zone, dates[0])
-    return recs
+    alerts = store.query_alerts(zone=zone)[::-1]          # newest first
+    metrics = store.query_metrics()
+    explain = store.explain_zone(zone, dates[0]) if zone and dates else []
+    if re.search(r"metric|recall|precision|evaluat|report|accura|baseline", q, re.I):
+        return metrics + explain + alerts
+    return explain + alerts + metrics
+
+
+def _line(r: dict[str, Any]) -> str:
+    """Deterministic one-line rendering of a logged record (no LLM)."""
+    rid = f"[{r['id']}]"
+    if "kind" in r and "zone_id" in r:
+        lvl = f"L{r['to_level']}" if r.get("to_level") is not None else ""
+        pp = f", p {r['p']}" if r.get("p") is not None else ""
+        return f"{r['date']} {r['zone_id']}: {r['kind']} {lvl}{pp} {rid}"
+    if "contributions" in r:
+        top = sorted(r["contributions"].items(), key=lambda kv: -abs(kv[1]))[:3]
+        return (f"{r['zone_id']} on {r['date']}: level L{r['level']}, p {r['p']}; main contributions "
+                + ", ".join(f"{k} {v:+}" for k, v in top) + f"; verifier {r.get('verifier_decision')} {rid}")
+    if "live_eval_through" in r:
+        return f"live replay metrics through {r['live_eval_through']}: recall_at {r.get('recall_at')}, alert-day fraction {r.get('alert_day_fraction')} (illustrative) {rid}"
+    if "split" in r:
+        part = " — partial data, not a result" if r.get("partial_data") else ""
+        return (f"{r['region']}/{r['split']} report: recall_at {r.get('recall_at')}, precision_day {r.get('precision_day')}, "
+                f"alert-day fraction {r.get('alert_day_fraction')}{part} {rid}")
+    return rid
+
+
+def record_summary(recs: list[dict[str, Any]], limit: int = 8) -> str:
+    """Answer built only from records (used when no LLM is configured or the LLM fails)."""
+    if not recs:
+        return "No logged records match the question."
+    head = f"{len(recs)} matching logged record{'s' if len(recs) != 1 else ''}"
+    return head + (f" (showing {limit})" if len(recs) > limit else "") + ":\n" + "\n".join("• " + _line(r) for r in recs[:limit])
 
 
 def answer(rt: LLMRuntime | None, store: AnalystStore, question: str, fault: str | None = None) -> dict[str, Any]:
@@ -66,8 +96,7 @@ def answer(rt: LLMRuntime | None, store: AnalystStore, question: str, fault: str
         return {"answer": ref, "citations": [], "source": "refusal"}
     recs = _prebundle(store, question)
     if rt is None:
-        return {"answer": "LLM offline. Relevant records: " + "; ".join(f"[{r['id']}]" for r in recs[:5]) if recs else "No logged records.",
-                "citations": [r["id"] for r in recs[:5]], "source": "template", "records": recs[:5]}
+        return {"answer": record_summary(recs), "citations": [r["id"] for r in recs[:8]], "source": "records", "records": recs[:8]}
     tools = [ToolSpec("query_alerts", "Logged alert escalations/de-escalations (filter by zone, min level, date_from).",
                       {"type": "object", "properties": {"zone": {"type": "string"}, "level_min": {"type": "integer"}, "date_from": {"type": "string"}}},
                       lambda **k: store.query_alerts(**k)),
@@ -85,6 +114,6 @@ def answer(rt: LLMRuntime | None, store: AnalystStore, question: str, fault: str
         meta["_mock_fault"] = fault
     out, rec = rt.run("analyst", system, user, recs, lambda o: check_analyst(o, recs), tools=tools, meta=meta, max_tokens=500)
     if out is None:
-        return {"answer": "Could not produce a verified answer. Relevant records: " + "; ".join(f"[{r['id']}]" for r in recs[:5]),
-                "citations": [r["id"] for r in recs[:5]], "source": "fallback", "usage": rec}
+        return {"answer": "The LLM answer failed its checks; records instead.\n" + record_summary(recs),
+                "citations": [r["id"] for r in recs[:8]], "source": "fallback", "usage": rec}
     return {**out, "source": "llm", "usage": rec}

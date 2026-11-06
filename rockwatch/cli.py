@@ -140,6 +140,12 @@ def cmd_eval(cfg: dict, args: argparse.Namespace) -> int:
             if not args.final:
                 print("REFUSED: the test split is evaluated only via `eval --split test --final` after CP2.", file=sys.stderr)
                 return 4
+            bs = repo_path(cfg["paths"]["processed"]) / r / "build_summary.json"
+            miss = json.loads(bs.read_text(encoding="utf-8")).get("zones_missing_weather", []) if bs.exists() else ["no build_summary"]
+            if miss:
+                print(f"REFUSED: {r} data is partial ({len(miss)} zones without weather). Finish fetch-weather + build-data + train first.",
+                      file=sys.stderr)
+                return 4
             prev = _existing_test_reports(cfg, r)
             if prev and not args.force_rerun_with_reason:
                 print(f"REFUSED: test metrics already exist ({prev[-1].name}). Use --force-rerun-with-reason.", file=sys.stderr)
@@ -176,7 +182,8 @@ def cmd_run_demo(cfg: dict, args: argparse.Namespace) -> int:
     from rockwatch.replay.launcher import launch
     kill = (args.kill_agent, args.kill_at_day) if args.kill_agent else None
     s = launch(cfg, args.scenario, args.speed, args.days, kill, set(args.auto_restart or []), llm=args.llm,
-               dashboard=not args.headless, port=args.port, keep_open=not args.no_wait)
+               dashboard=not args.headless, port=args.port, keep_open=not args.no_wait, ui=args.ui,
+               open_browser=not args.no_browser)
     print(json.dumps({k: s[k] for k in ("sim_days", "days_with_daily_state", "fused_msgs", "active_level_zone_days",
                                          "supervisor_flags", "degraded_fused_days", "eval_live_last", "offline_eval", "llm", "run_dir")},
                      indent=1, default=str))
@@ -264,8 +271,8 @@ def cmd_llm_smoke(cfg: dict, args: argparse.Namespace) -> int:
     val = (P["split"] == "val").to_numpy() & (raw >= 2)
     idx = np.flatnonzero(val)
     idx = idx[np.argsort(-pred["p"].to_numpy()[idx])][: args.n]
-    vrt = LLMRuntime(cfg, "verifier", provider=make_provider(cfg, "verifier", args.provider))
-    wrt = LLMRuntime(cfg, "writer", provider=make_provider(cfg, "writer", args.provider))
+    vrt = LLMRuntime(cfg, "verifier", provider=make_provider(cfg, "verifier", args.provider, batch=True))
+    wrt = LLMRuntime(cfg, "writer", provider=make_provider(cfg, "writer", args.provider, batch=True))
     out = {"provider": vrt.provider.name, "verifier_model": vrt.provider.model, "writer_model": wrt.provider.model, "verifier": [], "composer": []}
     for i in idx:
         z, d = P.at[i, "zone_id"], P.at[i, "date"].strftime("%Y-%m-%d")
@@ -283,6 +290,10 @@ def cmd_llm_smoke(cfg: dict, args: argparse.Namespace) -> int:
     print(json.dumps({"file": str(f), "usage": out["usage"],
                       "decisions": [(x["zone_id"], x["date"], x["decision"], x.get("verifier"), x.get("rationale")) for x in out["verifier"]]},
                      indent=1, default=str))
+    ok = out["usage"]["verifier"]["outcomes"].get("ok", 0)
+    if out["provider"] != "mock" and not ok:
+        print("SMOKE FAILED: no verifier call returned ok (check key / model IDs / network); see the file above.", file=sys.stderr)
+        return 3
     return 0
 
 
@@ -291,6 +302,13 @@ def cmd_cp2_packet(cfg: dict, args: argparse.Namespace) -> int:
     from rockwatch.eval.cp2 import packet
     print(packet(cfg, args.region))
     return 0
+
+
+def cmd_ui(cfg: dict, args: argparse.Namespace) -> int:
+    """Control-room web UI over recorded or live runs (http://localhost:8600)."""
+    from rockwatch.dashboard.server import main as ui_main
+    argv = ["--port", str(args.port)] + (["--run", args.run] if args.run else [])
+    return ui_main(argv)
 
 
 def _not_yet(phase: str):
@@ -344,8 +362,10 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--auto-restart", nargs="*", default=None, help="agent_ids the supervisor may restart")
     d.set_defaults(func=cmd_run_demo)
     d.add_argument("--llm", choices=["on", "off"], default="off")
-    d.add_argument("--port", type=int, default=8501)
+    d.add_argument("--port", type=int, default=8600)
+    d.add_argument("--ui", choices=["web", "streamlit"], default="web", help="web control room (default) or the Streamlit fallback")
     d.add_argument("--no-wait", action="store_true", help="close the dashboard when the replay ends")
+    d.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
     q = sp.add_parser("ask")
     q.add_argument("question")
     q.add_argument("--run", default=None)
@@ -354,8 +374,12 @@ def build_parser() -> argparse.ArgumentParser:
     sm = sp.add_parser("llm-smoke")
     sm.add_argument("--region", default="A")
     sm.add_argument("--n", type=int, default=3)
-    sm.add_argument("--provider", default=None, help="anthropic|ollama|mock (default: env ROCKWATCH_LLM_PROVIDER)")
+    sm.add_argument("--provider", default=None, help="anthropic|groq|ollama|mock (default: env ROCKWATCH_LLM_PROVIDER)")
     sm.set_defaults(func=cmd_llm_smoke)
+    ui = sp.add_parser("ui")
+    ui.add_argument("--run", default=None)
+    ui.add_argument("--port", type=int, default=8600)
+    ui.set_defaults(func=cmd_ui)
     cp = sp.add_parser("cp2-packet")
     cp.add_argument("--region", default="A")
     cp.set_defaults(func=cmd_cp2_packet)

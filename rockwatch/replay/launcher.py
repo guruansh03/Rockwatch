@@ -24,8 +24,8 @@ def runs_root(cfg) -> Path:
 
 
 def latest_run(cfg) -> Path | None:
-    r = sorted(p for p in runs_root(cfg).glob("*") if (p / "bus.sqlite").exists())
-    return r[-1] if r else None
+    r = [p for p in runs_root(cfg).glob("*") if (p / "bus.sqlite").exists() and (p / "run.json").exists()]
+    return max(r, key=lambda p: (p / "run.json").stat().st_mtime) if r else None
 
 
 def heartbeats(bus) -> dict[str, float]:
@@ -37,8 +37,8 @@ def heartbeats(bus) -> dict[str, float]:
 
 
 def launch(cfg: dict[str, Any], scenario: str, speed: float, days: int | None = None, kill: tuple[str, int] | None = None,
-           auto_restart: set[str] | None = None, log=print, llm: str = "off", dashboard: bool = False, port: int = 8501,
-           keep_open: bool = True) -> dict[str, Any]:
+           auto_restart: set[str] | None = None, log=print, llm: str = "off", dashboard: bool = False, port: int = 8600,
+           keep_open: bool = True, ui: str = "web", open_browser: bool = True) -> dict[str, Any]:
     from rockwatch.bus.sqlite_bus import SqliteBus
     from rockwatch.agents.evaluator import recompute_from_log
 
@@ -72,12 +72,22 @@ def launch(cfg: dict[str, Any], scenario: str, speed: float, days: int | None = 
     dash = None
     if dashboard:
         import os
+        import webbrowser
         env = {**os.environ, "ROCKWATCH_RUN_DIR": str(run_dir)}
-        dash = subprocess.Popen([sys.executable, "-m", "streamlit", "run", str(REPO_ROOT / "rockwatch" / "dashboard" / "app.py"),
-                                 "--server.headless", "true", "--server.port", str(port), "--browser.gatherUsageStats", "false"],
-                                cwd=str(REPO_ROOT), env=env, stdout=open(run_dir / "dashboard.log", "w"), stderr=subprocess.STDOUT)
-        log(f"dashboard: http://localhost:{port}  (opening in ~5 s)")
-        time.sleep(5)
+        if ui == "streamlit":
+            cmd = [sys.executable, "-m", "streamlit", "run", str(REPO_ROOT / "rockwatch" / "dashboard" / "app.py"),
+                   "--server.headless", "true", "--server.port", str(port), "--browser.gatherUsageStats", "false"]
+        else:
+            cmd = [sys.executable, "-m", "rockwatch.dashboard.server", "--run", str(run_dir), "--port", str(port)]
+        dash = subprocess.Popen(cmd, cwd=str(REPO_ROOT), env=env, stdout=open(run_dir / "dashboard.log", "w"), stderr=subprocess.STDOUT)
+        url = f"http://localhost:{port}/?run={run_dir.name}"
+        log(f"control room: {url}")
+        time.sleep(2.5)
+        if open_browser:
+            try:
+                webbrowser.open(url)
+            except Exception:  # noqa: BLE001
+                pass
     eng = Engine(ctx, bus)
 
     def on_day(i, d):

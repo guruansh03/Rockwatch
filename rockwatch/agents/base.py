@@ -118,6 +118,9 @@ class Agent:
         if env.topic == "sim.clock" and env.kind == "tick":
             self.tick_wall[env.sim_date] = time.time()
             self.current_day = env.sim_date
+            sp = (env.payload or {}).get("speed")
+            if sp:   # operator may change replay speed live; watermarks are fractions of it
+                self.ctx.speed = float(sp)
 
     def msg(self, topic: str, sim_date: str | None, payload: dict[str, Any], zone_id: str | None = None,
             kind: str = "data", quality: str = "ok", confidence: float = 1.0, evidence_ids: list[str] | None = None) -> Envelope:

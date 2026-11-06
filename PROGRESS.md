@@ -68,5 +68,38 @@
 - README (setup per OS, pipeline, mermaid, limitations, mine path), docs/architecture.md, evaluation.md, demo_script.md, llm_guardrails.md.
 - README results section waits for the final test run (numbers will be copied verbatim).
 
+## Control room UI — DONE (2026-10-30)
+- `rockwatch ui` / `run-demo` → http://localhost:8600: Overview (map, timeline, alerts), Zone detail, Alerts (ack), Agents (heartbeats,
+  faults, LLM log), Evaluation (reports), Analyst. Light/dark, keyboard, reduced motion, offline-capable (vendored Leaflet + fonts).
+- Verified with a headless browser on a live 60-day replay (pause/resume, kill/restart sensor, acknowledge, analyst) — no page errors.
+- Report figures restyled to the UI palette; lead-days histogram capped at 30+ days.
+- Tests: 65 + streamlit test (skips without streamlit) incl. `test_web_api.py`.
+
+## CP2 (partial) — 2026-10-30
+- t2_rule = f1_day approved (D-049); models retrained; val reports + CP2 packets regenerated
+  (Y val: recall_at 0.475 [0.32–0.62], day precision 0.33, alert-day fraction 0.21 vs random 0.28 recall at the same rate).
+- Pending: demo-scenario approval, final-run go/no-go, Alaska weather (31 zones) → rebuild/retrain before the final run.
+- India track dropped (D-050).
+
+## CP2 — APPROVED (2026-10-30)
+- Demo scenarios approved (D-052); go for the final run. Final run waits for Alaska weather (31 zones) → `RUN_ALASKA_PIPELINE.bat`
+  on the PC, then `FINAL_TEST_EVAL.bat`. Test scenarios locked until a final report exists (D-053).
+- UI round 2 (D-054/D-055): keyless basemaps, replay track + day inspection, speed control, LLM pill, alert grouping, t2≈t3 note.
+  Verified headless: day inspection (KPIs/map/truth switch to the day, ←/→/Esc), speed 2× → 0.75 s/day observed, pause/resume,
+  kill → STALE banner, restart; 65 tests pass.
+
+## Alaska data COMPLETE — 2026-10-31
+- Weather 70/70 zones (finished in the cloud sandbox after the PC hit the Open-Meteo daily quota; D-057). build-data → train → val eval.
+- A val (eval_20261031_002422_A_val, t2_rule f1_day): recall_at 0.429 [0.278–0.570], recall_before 0.406, day precision 0.047
+  [0.031–0.063], episode precision 0.123, alert-day fraction 0.105, 1.87 false alarms / zone-year, 611 event-days.
+  Baselines on val: B4 random at same rate recall_at 0.150; B5 rain-only 0.370 (alert 0.193); B1 daily rain 0.815 at 0.737 alert-days;
+  B3 seasonal climatology recall_at 0.296 with day precision 0.303 at 0.011 alert-days (strong; reported as is).
+- 12-day live check with all 70 zones: 840 fused messages, no degraded days, no supervisor flags.
+- Next: FINAL_TEST_EVAL.bat (CP2 approved).
+
+## Groq LLM — 2026-11-06
+- `rockwatch/llm/groq_provider.py` + factory/runtime/UI support; 6 offline tests (request shape, 429 retry, param fallback, cap).
+- `.env` on the PC: provider groq + key. `FINAL_TEST_EVAL.bat` detects the Groq key → smoke test → final eval with ± LLM.
+
 ## Deviations
 - DECISIONS.md D-001..D-019.

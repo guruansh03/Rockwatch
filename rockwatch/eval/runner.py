@@ -101,7 +101,7 @@ def apply_llm_verifier(cfg, region, P, pred, raw, ndyn, th, fr, provider=None) -
     rc = cfg["regions"][region]
     ctx = AgentContext(cfg, region, rc["splits"]["train"][0], rc["splits"]["test"][1])
     store = PanelStore(P, pred, raw, ndyn, ctx)
-    rt = LLMRuntime(cfg, "verifier", provider=provider)
+    rt = LLMRuntime(cfg, "verifier", provider=provider, batch=True)
     out = raw.copy()
     rows = np.flatnonzero((raw >= 2) & fr.in_period)
     # deterministic cap (D-035): verify the max_llm_calls highest-p candidates; the rest keep the deterministic level

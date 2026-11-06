@@ -32,8 +32,8 @@ def pick_run() -> Path | None:
     env = os.getenv("ROCKWATCH_RUN_DIR")
     if env:
         return Path(env)
-    runs = sorted(p for p in repo_path("data/runs").glob("*") if (p / "bus.sqlite").exists())
-    return runs[-1] if runs else None
+    runs = [p for p in repo_path("data/runs").glob("*") if (p / "bus.sqlite").exists() and (p / "run.json").exists()]
+    return max(runs, key=lambda p: (p / "run.json").stat().st_mtime) if runs else None
 
 
 @st.cache_resource

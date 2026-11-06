@@ -39,10 +39,21 @@ class Engine:
     def truth_msg(self, d: str) -> Envelope:
         return Envelope(topic=TRUTH_TOPIC, agent_id=self.agent_id, sim_date=d, kind="day_close", payload={"events": self.truth.get(d, [])})
 
+    def paused(self) -> bool:
+        """Operator pause/resume via agents.control (control-room UI). Also picks up an operator speed change."""
+        ctl = self.bus.read(self.agent_id, ["agents.control"])
+        sp = [e for e in ctl if e.kind == "speed"]
+        if sp:
+            self.ctx.speed = float(sp[-1].payload["s"])   # agents follow via the tick payload (watermarks scale)
+        pr = [e for e in ctl if e.kind in ("pause", "resume")]
+        return bool(pr) and pr[-1].kind == "pause"
+
     def run(self, on_day=None) -> None:
         """Real-time replay for multi-process runs (2-day warm-up pause so every agent is polling)."""
         time.sleep(2 * self.ctx.speed)
         for i, d in enumerate(self.days):
+            while self.paused():
+                time.sleep(0.3)
             t0 = time.time()
             self.bus.publish(self.tick_msg(d))
             if on_day:

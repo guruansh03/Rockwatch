@@ -2,13 +2,13 @@
  "storm": {
   "start": "2018-10-12",
   "days": 45,
-  "why": "wettest 45-day window of region-mean precipitation in test period (8.0 mm/day)",
+  "why": "wettest 45-day window of region-mean precipitation in test period (12.6 mm/day)",
   "region": "A"
  },
  "quiet": {
   "start": "2022-05-15",
   "days": 45,
-  "why": "driest 45-day window (1.14 mm/day)",
+  "why": "driest 45-day window (1.23 mm/day)",
   "region": "A"
  },
  "earthquake": {

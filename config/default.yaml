@@ -100,6 +100,11 @@ llm:
   timeout_s: 20
   max_tool_turns: 4
   max_llm_calls: 500
+  groq:                     # Groq free tier (D-058): ~30 req/min, 8K tokens/min, 200K tokens/day per model
+    verifier: openai/gpt-oss-20b
+    writer: openai/gpt-oss-120b
+    min_interval_s_batch: 7.5   # pacing for eval/smoke so ~1K-token calls stay under 8K tokens/min
+    max_llm_calls: 80           # per region and run (highest-p first): 2 x 80 x ~900 tokens stays under 200K tokens/day
   prices: null              # never hardcoded
 
 fusion:
@@ -111,7 +116,7 @@ fusion:
   dynamic_modalities: [rain, thermal, seismic]
 
 thresholds:
-  t2_rule: f1_episode       # L2 rule: f1_episode (spec §8: F1 with episode precision) | f1_day (day-level precision). Decide at CP2.
+  t2_rule: f1_day           # CP2 (user, 2026-10-30): F1 with day-level precision (D-049). Alternative: f1_episode (spec §8 as written).
   t1_recall: 0.9            # L1: largest t with val recall_at >= 0.9
   t3_min_recall: 0.2        # L3: max precision with recall >= 0.2 AND corroboration
   n_grid: 200
@@ -148,6 +153,13 @@ scenarios:
     region: Y
     start: "2009-03-01"
     days: 60
+  # TEST-period demo scenarios approved at CP2 (D-052). Replayable only after the sealed final test evaluation exists.
+  storm_A:   {region: A, start: "2018-10-12", days: 45}   # wettest 45-day window in test (CP2 packet)
+  quiet_A:   {region: A, start: "2022-05-15", days: 45}   # driest 45-day window
+  quake_A:   {region: A, start: "2018-11-20", days: 45}   # M7.1 Anchorage 2018-11-30 inside window
+  storm_Y:   {region: Y, start: "2010-11-19", days: 45}
+  quiet_Y:   {region: Y, start: "2010-05-29", days: 45}
+  quake_Y:   {region: Y, start: "2011-08-14", days: 45}   # M4.23 on 2011-08-24 (<=100 km)
 # (llm) live demo budget: at most this many verifier calls per sim-day (highest-p first is not guaranteed; arrival order)
 llm_live:
   max_calls_per_day: 3
