@@ -97,8 +97,49 @@ flowchart LR
 ```
 
 ## Results
-**Pending CP2 and the final test run.** Headline numbers will be copied verbatim from `reports/eval_*_test/metrics.md`.
-Validation-only numbers are in `reports/` (optimistic: thresholds are tuned there) and `docs/cp2_packet_*.md`.
+Final, sealed test evaluation, run once after CP2 (2026-11-06, git `28e2d92`, `reports/final_runs.log`). Numbers below are
+copied from `reports/eval_20261106_225915_A_test/metrics.md` and `reports/eval_20261106_231204_Y_test/metrics.md` (rounded to
+3 decimals; 95% CI = block bootstrap by storm cluster). Alert level for P/R: L2+. **US natural-slope / road-cut data — not mine
+performance. Precision is a lower bound (unreported events). Lead time in days; no time-of-failure prediction.**
+
+**Region A — Anchorage / Seward Highway, Alaska** · test 2018-04-15 → 2022-06-30 · 70 zones · 606 event-days
+
+| system | recall_at | recall_before | precision_day | precision_episode | alert-day fraction | false alarms / zone-yr |
+|---|---|---|---|---|---|---|
+| **RockWatch (full fusion)** | **0.469** [0.372, 0.557] | 0.447 [0.349, 0.538] | **0.035** [0.026, 0.045] | 0.092 [0.050, 0.123] | 0.111 | 2.137 |
+| B4 random, same alert rate | 0.168 | 0.118 | 0.009 | 0.013 | 0.111 | 18.360 |
+| B5 rain-only model | 0.363 | 0.318 | 0.014 | 0.035 | 0.188 | 6.616 |
+| B1 daily rain ≥ q | 0.855 | 0.776 | 0.009 | 0.026 | 0.778 | 27.545 |
+| B3 seasonal climatology | 0.239 | 0.236 | 0.181 | 0.800 | 0.011 | 0.007 |
+| B2 Seattle threshold (designed for Seattle) | 0.097 | 0.091 | 0.003 | 0.025 | 0.295 | 4.655 |
+
+**Region Y — Yosemite Valley rockfalls (single zone)** · test 2010-05-04 → 2011-12-31 · 80 event-days
+
+| system | recall_at | recall_before | precision_day | precision_episode | alert-day fraction |
+|---|---|---|---|---|---|
+| RockWatch, LLM-Verifier off | 0.250 | — | 0.246 | — | 0.194 |
+| **RockWatch + LLM-Verifier (Groq)** | **0.238** [0.118, 0.352] | 0.138 [0.052, 0.227] | **0.231** [0.123, 0.351] | 0.433 [0.250, 0.630] | 0.178 |
+| B4 random, same alert rate | 0.231 | 0.168 | 0.216 | — | 0.174 |
+| B5 rain-only model | 0.425 | 0.313 | 0.313 | — | 0.269 |
+| B3 seasonal climatology | 0.613 | 0.600 | 0.208 | — | 0.707 |
+
+**LLM-Verifier (Groq `openai/gpt-oss-20b`, free tier, cap 80 calls per region).**
+- **A:** 10,806 L2+ candidates; 80 were verified (CONFIRM 37, DOWNGRADE 1), and 42 of those fell back to the deterministic level
+  (14 guardrail failures, 28 hit the call cap through retries). Metrics with and without the verifier are identical.
+- **Y:** 83 candidates; CONFIRM 24, DOWNGRADE 12, FALLBACK 44, of which 43 were provider errors (most likely the free-tier daily token limit, reached after Alaska's calls).
+  The downgrades lowered recall 0.250 → 0.238 and day precision 0.246 → 0.231.
+- In the smoke test the composer's messages failed the number guardrail 3/3: it restated p as a percent, e.g. 7.8, and was
+  replaced by the template.
+
+**Reading it.**
+- **Alaska:** at ~11% alert-days, RockWatch catches 2.8× the event-days of random alerts at the same rate, with 3.8× the day
+  precision. It also beats the rain-only model. Seasonal climatology is far more precise (0.181) but alerts on only 1% of days
+  and catches half as many.
+- **Yosemite:** test performance is indistinguishable from random at the same alert rate (CIs overlap), and below the rain-only
+  model — the single-zone model does not generalise from 1951–2008 training to 2010–2011.
+- **LLM-Verifier:** under the free-tier budget it neither helps nor protects. The fusion model carries the result.
+
+Validation-period numbers are in `reports/` and `docs/cp2_packet_*.md` (optimistic: thresholds are tuned there).
 
 ## Limitations
 - Inputs are daily reanalysis weather (~9–25 km) and a regional quake catalogue: no slope displacement is observed, so this is

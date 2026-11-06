@@ -1,0 +1,26 @@
+{
+ "provider": "groq",
+ "model": "openai/gpt-oss-20b",
+ "calls_made": 80,
+ "cap": 80,
+ "requests": 80,
+ "outcomes": {
+  "ok": 35,
+  "ok_after_retry": 1,
+  "fallback_error": 43,
+  "fallback_cap": 1
+ },
+ "cached": 0,
+ "input_tokens": 49119,
+ "output_tokens": 10887,
+ "latency_s_total": 764.76,
+ "cost": null,
+ "candidates": 83,
+ "decisions": {
+  "FALLBACK_CAP": 3,
+  "DOWNGRADE": 12,
+  "CONFIRM": 24,
+  "FALLBACK": 44
+ },
+ "levels_changed": 26
+}

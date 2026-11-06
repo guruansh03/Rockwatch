@@ -101,5 +101,11 @@
 - `rockwatch/llm/groq_provider.py` + factory/runtime/UI support; 6 offline tests (request shape, 429 retry, param fallback, cap).
 - `.env` on the PC: provider groq + key. `FINAL_TEST_EVAL.bat` detects the Groq key → smoke test → final eval with ± LLM.
 
+## Phase 6 — FINAL TEST EVAL — DONE (2026-11-06, run once, git 28e2d92)
+- A: recall_at 0.469 [0.372–0.557], day precision 0.035 [0.026–0.045], alert-day fraction 0.111 vs random 0.168 / 0.009.
+- Y: recall_at 0.238 [0.118–0.352], day precision 0.231 [0.123–0.351] vs random 0.231 / 0.216 — no skill on test.
+- LLM-Verifier (Groq, cap 80): no effect on A; slightly negative on Y; many fallbacks (guardrail, cap, free-tier token limit).
+- README Results filled from the test reports. Test-period scenarios now replayable.
+
 ## Deviations
 - DECISIONS.md D-001..D-019.

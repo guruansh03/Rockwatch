@@ -1,0 +1,259 @@
+{
+ "provider": "groq",
+ "verifier_model": "openai/gpt-oss-20b",
+ "writer_model": "openai/gpt-oss-120b",
+ "verifier": [
+  {
+   "mode": "llm",
+   "zone_id": "r9c9",
+   "date": "2015-04-06",
+   "level_in": 3,
+   "usage": {
+    "task": "verifier",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "attempts": 2,
+    "cached": false,
+    "input_tokens": 2775,
+    "output_tokens": 605,
+    "latency_s": 8.629,
+    "violations": [
+     "missing_field:missing_evidence",
+     "missing_field:missing_evidence"
+    ],
+    "outcome": "fallback_guardrail",
+    "tool_calls": 0
+   },
+   "decision": "FALLBACK",
+   "level_out": 3,
+   "verifier": "fallback",
+   "rationale": null,
+   "evidence_ids": []
+  },
+  {
+   "mode": "llm",
+   "zone_id": "r8c5",
+   "date": "2017-05-02",
+   "level_in": 3,
+   "usage": {
+    "task": "verifier",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "attempts": 2,
+    "cached": false,
+    "input_tokens": 2773,
+    "output_tokens": 670,
+    "latency_s": 14.991,
+    "violations": [
+     "missing_field:missing_evidence",
+     "missing_field:missing_evidence"
+    ],
+    "outcome": "fallback_guardrail",
+    "tool_calls": 0
+   },
+   "decision": "FALLBACK",
+   "level_out": 3,
+   "verifier": "fallback",
+   "rationale": null,
+   "evidence_ids": []
+  },
+  {
+   "mode": "llm",
+   "zone_id": "r8c5",
+   "date": "2017-05-10",
+   "level_in": 3,
+   "usage": {
+    "task": "verifier",
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "attempts": 1,
+    "cached": false,
+    "input_tokens": 1379,
+    "output_tokens": 193,
+    "latency_s": 7.431,
+    "violations": [],
+    "outcome": "ok",
+    "tool_calls": 0
+   },
+   "decision": "CONFIRM",
+   "level_out": 3,
+   "l3_corroborated_by_llm": false,
+   "verifier": "llm",
+   "confidence": 0.95,
+   "rationale": "p=0.0778, logit=-2.215, provisional_level=3, seismic=0.0418, all modalities ok",
+   "evidence_ids": [
+    "panel:r8c5:2017-05-10:fused",
+    "panel:r8c5:2017-05-10:rain",
+    "panel:r8c5:2017-05-10:susceptibility",
+    "panel:r8c5:2017-05-10:thermal",
+    "panel:r8c5:2017-05-10:seismic",
+    "panel:r8c5:2017-05-10:context"
+   ],
+   "missing_evidence": []
+  }
+ ],
+ "composer": [
+  {
+   "alert": {
+    "zone_id": "r9c9",
+    "date": "2015-04-06",
+    "level": 3,
+    "p": 0.0809,
+    "top_modality": "susceptibility",
+    "contributions": {
+     "rain": 1.083,
+     "susceptibility": 3.0,
+     "thermal": 0.057,
+     "seismic": 0.042,
+     "context": 0.341
+    },
+    "episode_id": null
+   },
+   "message": {
+    "headline": "L3 Alarm \u2014 zone r9c9 (2015-04-06)",
+    "body": "Daily landslide-risk estimate p=0.081; main contribution: susceptibility. This is a daily probability, not a failure time.",
+    "actions": [
+     "Increase monitoring of slopes in the zone.",
+     "Restrict access below slopes in the zone.",
+     "Close or evacuate the zone."
+    ],
+    "source": "template"
+   },
+   "usage": {
+    "task": "composer",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "attempts": 2,
+    "cached": false,
+    "input_tokens": 957,
+    "output_tokens": 412,
+    "latency_s": 15.128,
+    "violations": [
+     "unsupported_numbers:body:['8.09']",
+     "unsupported_numbers:body:['8']"
+    ],
+    "outcome": "fallback_guardrail",
+    "tool_calls": 0
+   }
+  },
+  {
+   "alert": {
+    "zone_id": "r8c5",
+    "date": "2017-05-02",
+    "level": 3,
+    "p": 0.0782,
+    "top_modality": "susceptibility",
+    "contributions": {
+     "rain": 0.742,
+     "susceptibility": 3.0,
+     "thermal": -0.01,
+     "seismic": 0.042,
+     "context": 0.701
+    },
+    "episode_id": null
+   },
+   "message": {
+    "headline": "L3 Alarm \u2014 zone r8c5 (2017-05-02)",
+    "body": "Daily landslide-risk estimate p=0.078; main contribution: susceptibility. This is a daily probability, not a failure time.",
+    "actions": [
+     "Increase monitoring of slopes in the zone.",
+     "Restrict access below slopes in the zone.",
+     "Close or evacuate the zone."
+    ],
+    "source": "template"
+   },
+   "usage": {
+    "task": "composer",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "attempts": 2,
+    "cached": false,
+    "input_tokens": 957,
+    "output_tokens": 460,
+    "latency_s": 14.878,
+    "violations": [
+     "unsupported_numbers:body:['7.8']",
+     "unsupported_numbers:body:['7.8']"
+    ],
+    "outcome": "fallback_guardrail",
+    "tool_calls": 0
+   }
+  },
+  {
+   "alert": {
+    "zone_id": "r8c5",
+    "date": "2017-05-10",
+    "level": 3,
+    "p": 0.0778,
+    "top_modality": "susceptibility",
+    "contributions": {
+     "rain": 0.81,
+     "susceptibility": 3.0,
+     "thermal": 0.038,
+     "seismic": 0.042,
+     "context": 0.579
+    },
+    "episode_id": null
+   },
+   "message": {
+    "headline": "L3 Alarm \u2014 zone r8c5 (2017-05-10)",
+    "body": "Daily landslide-risk estimate p=0.078; main contribution: susceptibility. This is a daily probability, not a failure time.",
+    "actions": [
+     "Increase monitoring of slopes in the zone.",
+     "Restrict access below slopes in the zone.",
+     "Close or evacuate the zone."
+    ],
+    "source": "template"
+   },
+   "usage": {
+    "task": "composer",
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "attempts": 2,
+    "cached": false,
+    "input_tokens": 957,
+    "output_tokens": 439,
+    "latency_s": 14.946000000000002,
+    "violations": [
+     "unsupported_numbers:body:['7.8']",
+     "unsupported_numbers:body:['7.8']"
+    ],
+    "outcome": "fallback_guardrail",
+    "tool_calls": 0
+   }
+  }
+ ],
+ "usage": {
+  "verifier": {
+   "provider": "groq",
+   "model": "openai/gpt-oss-20b",
+   "calls_made": 5,
+   "cap": 80,
+   "requests": 3,
+   "outcomes": {
+    "fallback_guardrail": 2,
+    "ok": 1
+   },
+   "cached": 0,
+   "input_tokens": 6927,
+   "output_tokens": 1468,
+   "latency_s_total": 31.05,
+   "cost": null
+  },
+  "writer": {
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b",
+   "calls_made": 6,
+   "cap": 80,
+   "requests": 3,
+   "outcomes": {
+    "fallback_guardrail": 3
+   },
+   "cached": 0,
+   "input_tokens": 2871,
+   "output_tokens": 1311,
+   "latency_s_total": 44.95,
+   "cost": null
+  }
+ }
+}

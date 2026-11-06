@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -129,6 +130,7 @@ def _plots(res: dict[str, Any], out: Path) -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)   # IBM Plex optional; DejaVu fallback is fine
     plt.rcParams.update({"font.family": ["IBM Plex Sans", "DejaVu Sans"], "font.size": 9, "axes.titlesize": 10, "axes.titleweight": "semibold",
                          "axes.titlelocation": "left", "axes.labelsize": 9, "legend.frameon": False})
     fig, ax = plt.subplots(figsize=(6.2, 4.4))
