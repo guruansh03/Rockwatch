@@ -1,18 +1,23 @@
-# Unpinned for Phase 0; pin via `pip freeze > requirements.lock.txt` after first full install.
-pandas>=2.1
-numpy
-scipy
-scikit-learn
-pyarrow
-requests
-pydantic>=2
-pyyaml
-python-dotenv
-openpyxl
-tzdata      # IANA tz db on Windows
-streamlit
+# RockWatch-FuseGuard — Python >= 3.10. Install: pip install -r requirements.txt
+# Tested versions in brackets.
+# core pipeline, models, agents
+pandas>=2.1          # [2.3.3]
+numpy>=1.26          # [2.2.6]
+scipy>=1.11
+scikit-learn>=1.4    # [1.7.2]
+pyarrow>=14          # [25.0.1]  parquet I/O
+requests>=2.31       # Open-Meteo, USGS ComCat, Groq HTTP API
+pydantic>=2.5        # [2.14.2]  bus message schema
+pyyaml>=6
+python-dotenv>=1.0   # .env (LLM provider + keys)
+openpyxl>=3.1        # Yosemite DS746 .xlsx
+tzdata               # IANA time zones (needed on Windows)
+matplotlib>=3.8      # [3.10.9]  report figures
+# LLM providers (optional; mock works without them; Groq uses plain requests)
+anthropic>=0.40
+# optional Streamlit fallback dashboard (main UI is the built-in web control room, no extra deps)
+streamlit>=1.35
 pydeck
 plotly
-matplotlib
-anthropic
-pytest
+# tests
+pytest>=8

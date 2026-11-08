@@ -21,10 +21,30 @@ Regions (frozen at CP1): **A** Anchorage / Seward Highway, Alaska (AK DOT rockfa
 ```
 python -m venv .venv
 # Windows:  .venv\Scripts\activate        macOS/Linux:  source .venv/bin/activate
-pip install -e ".[ui,llm,dev]"
-copy .env.example .env      # macOS/Linux: cp .env.example .env ; set ROCKWATCH_LLM_PROVIDER (mock|groq|anthropic|ollama)
+pip install -r requirements.txt
+copy .env.example .env      # macOS/Linux: cp .env.example .env
 ```
-Python ≥ 3.10 works (3.11+ recommended). No geopandas, no bash scripts — everything is `python -m rockwatch ...`.
+Python ≥ 3.10. Edit `.env`: `ROCKWATCH_LLM_PROVIDER=mock` runs fully offline; for real LLM checks set `groq` and
+`GROQ_API_KEY` (free key at console.groq.com) or `anthropic` and `ANTHROPIC_API_KEY`. No geopandas, no bash scripts —
+everything is `python -m rockwatch ...` (Windows: double-click the `.bat` launchers, see Quick start).
+
+## Run it (shortest path)
+The submission ships with processed data, cached weather/earthquakes, trained models and the final reports, so the demo and
+tests run without any download:
+```
+pytest -q                                              # 73 tests (6 need one recorded run: run the demo first)
+python -m rockwatch run-demo --scenario quake_A --llm on   # 16 agents + replay; control room opens at http://localhost:8600
+python -m rockwatch ui                                 # browse recorded runs and evaluation reports
+```
+
+## Datasets (download links)
+Raw source files are not included (size); `data/processed/` and `data/cache/` are. To rebuild everything from scratch:
+| Dataset | Use | Link | Put in |
+|---|---|---|---|
+| USGS *Landslide Inventories across the United States* v3.0 (CC0), file `US_Landslide_v3_csv.zip` (~24 MB) | Alaska ground truth | https://doi.org/10.5066/P14AJF8I (ScienceBase item https://www.sciencebase.gov/catalog/item/671eef1fd34ed0f827ea9f12) | `data/raw/usgs_ls_v3/` |
+| USGS Data Series 746 — Yosemite rock falls 1857–2011, `Yosemite_rock_fall_database_1857-2011.xlsx` | Yosemite ground truth | https://pubs.usgs.gov/ds/746/ | `data/raw/yosemite/` |
+| Open-Meteo historical weather (CC BY 4.0) | daily rain/temperature per zone | https://open-meteo.com/en/docs/historical-weather-api (fetched by `fetch-weather`) | `data/cache/weather/` |
+| USGS ComCat earthquakes | seismic evidence | https://earthquake.usgs.gov/fdsnws/event/1/ (fetched by `build-data`) | `data/cache/quakes/` |
 
 ## Pipeline
 ```

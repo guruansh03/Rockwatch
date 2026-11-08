@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "rockwatch"
 version = "0.0.1"
 description = "RockWatch-FuseGuard: multi-agent landslide early-warning prototype (SIH25071)"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
   "pandas>=2.1", "numpy", "scipy", "scikit-learn", "pyarrow", "requests", "pydantic>=2",
   "pyyaml", "python-dotenv", "openpyxl", "tzdata",
