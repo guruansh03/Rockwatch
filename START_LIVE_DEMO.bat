@@ -8,9 +8,9 @@ python -c "import pandas, pyarrow, yaml, pydantic, requests, dotenv, sklearn, ma
 )
 title RockWatch live demo - http://localhost:8600
 set SCENARIO=%1
-if "%SCENARIO%"=="" set SCENARIO=dev_val_Y
+if "%SCENARIO%"=="" set SCENARIO=quake_A
 echo Starting 16 agent processes + replay (%SCENARIO%) + control room on http://localhost:8600
-echo Scenarios: dev_val_Y (default) ^| dev_val (Alaska) ^| after the final eval: storm_A quiet_A quake_A storm_Y quiet_Y quake_Y
+echo Default: quake_A (Alaska, M7.1 Anchorage quake 2018-11-30). Others: storm_A quiet_A storm_Y quiet_Y quake_Y dev_val dev_val_Y
 echo The browser opens once the agents are up. Space = pause/resume. Close this window to stop.
 start "" cmd /c "timeout /t 14 /nobreak >nul & start chrome http://localhost:8600/ || start http://localhost:8600/"
 python -m rockwatch run-demo --scenario %SCENARIO% --llm on --speed 1.5 --no-browser

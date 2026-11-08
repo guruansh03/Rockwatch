@@ -49,7 +49,7 @@ pytest -q
 Double-click, in this order:
 1. **`RUN_ALASKA_PIPELINE.bat`** — finishes the Alaska weather download (pauses for the Open-Meteo hourly quota and resumes on its
    own; safe to close and re-run), then rebuilds features, retrains, evaluates on **validation** and refreshes the CP2 packet.
-2. **`START_LIVE_DEMO.bat`** — live replay with all 16 agents + control room (default `dev_val_Y`; `START_LIVE_DEMO.bat dev_val`
+2. **`START_LIVE_DEMO.bat`** — live replay with all 16 agents + control room (default `quake_A`, the 2018 M7.1 Anchorage quake; `START_LIVE_DEMO.bat dev_val`
    for Alaska). **`START_CONTROL_ROOM.bat`** only browses recorded runs and reports.
 3. **`FINAL_TEST_EVAL.bat`** — the one-time sealed test evaluation (CP2 approved). With `GROQ_API_KEY` (free, console.groq.com)
    or `ANTHROPIC_API_KEY` in `.env` it first runs the real-LLM smoke test, then evaluates A and Y with and without the LLM
